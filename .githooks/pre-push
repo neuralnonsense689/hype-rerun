@@ -1,0 +1,20 @@
+#!/bin/sh
+# Push only to the public account's repos, and only commits made as the public account.
+. "$(dirname "$0")/identity.sh"
+
+case "$2" in
+  *"$WANT_REMOTE"*) ;;
+  *) echo "pre-push: remote \"$2\" is not under $WANT_REMOTE." >&2; exit 1 ;;
+esac
+
+zero=0000000000000000000000000000000000000000
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue
+  if [ "$remote_sha" = "$zero" ]; then range="$local_sha"; else range="$remote_sha..$local_sha"; fi
+  bad=$(git log --format='%h %an <%ae> / %cn <%ce>' "$range" | grep -vF "$WANT_NAME <$WANT_EMAIL> / $WANT_NAME <$WANT_EMAIL>")
+  if [ -n "$bad" ]; then
+    echo "pre-push: these commits are not by $WANT_NAME <$WANT_EMAIL>:" >&2
+    echo "$bad" >&2
+    exit 1
+  fi
+done

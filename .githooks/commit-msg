@@ -1,0 +1,8 @@
+#!/bin/sh
+# Block commit messages that carry personal details.
+. "$(dirname "$0")/identity.sh"
+
+if grep -v '^#' "$1" | grep -inE "$PERSONAL" >&2; then
+  echo "commit-msg: the message contains personal details (above)." >&2
+  exit 1
+fi

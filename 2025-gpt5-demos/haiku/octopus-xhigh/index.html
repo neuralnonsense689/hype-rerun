@@ -1,0 +1,695 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pink Octopus Swimming Across the Ocean</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0c4a63; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+</style>
+<!-- Import map: "three" and its addons (OrbitControls) come from the same CDN, pinned to the latest release -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@latest/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@latest/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ---------- Constants and helpers ----------
+const TAU = Math.PI * 2;
+const WATER_Y = 16;                              // height of the sea surface
+const SEABED_Y = -9;                             // average height of the sea floor
+const FOG_DENSITY = 0.014;
+const SEA_COLOR = new THREE.Color('#0c4a63');    // fog colour and horizon colour
+const PINK = new THREE.Color('#ff7fbf');
+const TIP = new THREE.Color('#9c1f66');          // deeper magenta toward the tentacle tips
+const AXIS_X = new THREE.Vector3(1, 0, 0);
+const AXIS_Y = new THREE.Vector3(0, 1, 0);
+
+// Seeded random, so the scene looks the same on every load
+let seed = 20261030;
+const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+
+// Soft round sprite drawn on a canvas at runtime (no image files)
+function radialTexture(stops) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  for (const [offset, color] of stops) grad.addColorStop(offset, color);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 64, 64);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+// Seabed height at (x, z): a few smooth sine waves, so no noise texture is needed
+function seabedHeight(x, z) {
+  return SEABED_Y
+    + Math.sin(x * 0.045) * Math.cos(z * 0.038) * 1.6
+    + Math.sin(x * 0.13 + z * 0.09) * 0.5
+    + Math.sin(z * 0.21 - x * 0.07) * 0.35;
+}
+
+// One time object shared by every shader, so a single update drives all of them
+const uTime = { value: 0 };
+
+// ---------- Renderer, scene, camera, controls ----------
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.NeutralToneMapping;
+renderer.toneMappingExposure = 1.1;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(SEA_COLOR, FOG_DENSITY);   // subtle exponential fog
+
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 600);
+camera.position.set(0, 3, 24);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 2, 0);
+controls.enableDamping = true;                 // smooth orbiting, needs controls.update() each frame
+controls.minDistance = 6;
+controls.maxDistance = 90;
+controls.maxPolarAngle = Math.PI * 0.49;       // keeps the camera above the seabed
+controls.update();
+
+// ---------- Background: gradient dome (no texture); its horizon matches the fog ----------
+const sky = new THREE.Mesh(
+  new THREE.SphereGeometry(400, 32, 16),
+  new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    depthWrite: false,
+    uniforms: {
+      uHorizon: { value: SEA_COLOR },
+      uTop: { value: new THREE.Color('#3fd0e6') },
+      uDeep: { value: new THREE.Color('#02131f') },
+    },
+    vertexShader: `
+      varying vec3 vDir;
+      void main() {
+        vDir = normalize(position);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: `
+      uniform vec3 uHorizon;
+      uniform vec3 uTop;
+      uniform vec3 uDeep;
+      varying vec3 vDir;
+      void main() {
+        vec3 col = vDir.y > 0.0
+          ? mix(uHorizon, uTop, smoothstep(0.0, 0.5, vDir.y))
+          : mix(uHorizon, uDeep, smoothstep(0.0, 0.4, -vDir.y));
+        gl_FragColor = vec4(col, 1.0);
+        #include <colorspace_fragment>
+      }`,
+  }),
+);
+sky.renderOrder = -10;
+scene.add(sky);
+
+// ---------- Lights: soft hemisphere fill, a key sun, and a pink back light for the rim ----------
+const hemi = new THREE.HemisphereLight(0x9ff0ff, 0x123046, 1.6);
+scene.add(hemi);
+
+const sun = new THREE.DirectionalLight(0xdffcff, 2.4);
+sun.position.set(12, 40, 18);
+scene.add(sun);
+
+const backRim = new THREE.DirectionalLight(0xff8fc7, 1.2);
+backRim.position.set(-20, 8, -25);
+scene.add(backRim);
+
+// ---------- Sea surface: waves in the vertex shader, shading in the fragment shader ----------
+const waterMat = new THREE.ShaderMaterial({
+  uniforms: {
+    uTime,
+    uFogColor: { value: SEA_COLOR },
+    uFogDensity: { value: FOG_DENSITY },
+    uDeep: { value: new THREE.Color('#0b5670') },
+    uGlow: { value: new THREE.Color('#8ff3ff') },
+  },
+  transparent: true,
+  depthWrite: false,
+  side: THREE.DoubleSide,
+  vertexShader: `
+    uniform float uTime;
+    varying vec3 vWorld;
+    varying vec3 vNormal;
+    // Surface height: a few travelling sine waves
+    float waveH(vec2 p, float t) {
+      return sin(p.x * 0.31 + t * 1.1) * 0.55
+           + sin(p.y * 0.23 - t * 0.9) * 0.45
+           + sin((p.x + p.y) * 0.57 + t * 1.7) * 0.22
+           + sin((p.x - p.y) * 0.91 - t * 2.3) * 0.10;
+    }
+    void main() {
+      vec2 p = position.xz;
+      float h = waveH(p, uTime);
+      // Surface normal from the height change along x and z (finite difference)
+      float e = 0.25;
+      float hx = waveH(p + vec2(e, 0.0), uTime);
+      float hz = waveH(p + vec2(0.0, e), uTime);
+      vNormal = normalize(vec3(-(hx - h) / e, 1.0, -(hz - h) / e));
+      vec4 world = modelMatrix * vec4(position.x, h, position.z, 1.0);
+      vWorld = world.xyz;
+      gl_Position = projectionMatrix * viewMatrix * world;
+    }`,
+  fragmentShader: `
+    uniform float uTime;
+    uniform vec3 uFogColor;
+    uniform float uFogDensity;
+    uniform vec3 uDeep;
+    uniform vec3 uGlow;
+    varying vec3 vWorld;
+    varying vec3 vNormal;
+    // Thin bright streaks that drift across the surface
+    float streaks(vec2 p, float t) {
+      float a = sin(p.x * 1.3 + sin(p.y * 0.9 + t * 0.8) * 2.0 + t);
+      float b = sin(p.y * 1.7 - sin(p.x * 1.1 - t * 0.7) * 2.0 - t * 1.2);
+      return pow(0.5 + 0.5 * a * b, 6.0);
+    }
+    void main() {
+      vec3 N = normalize(vNormal);
+      vec3 V = normalize(cameraPosition - vWorld);
+      float glint = streaks(vWorld.xz * 0.35, uTime);
+      vec3 col;
+      float alpha;
+      if (cameraPosition.y < vWorld.y) {
+        // Seen from underneath: a bright, rippling ceiling of light
+        col = mix(uDeep, uGlow, 0.35 + 0.65 * glint);
+        alpha = 0.55 + 0.35 * glint;
+      } else {
+        // Seen from above: a glossy sheet with sun glints and a fresnel edge
+        float fres = pow(1.0 - max(dot(N, V), 0.0), 3.0);
+        vec3 L = normalize(vec3(0.35, 1.0, 0.2));
+        float spec = pow(max(dot(reflect(-V, N), L), 0.0), 180.0);
+        col = mix(uDeep, uGlow, fres) + vec3(1.0, 0.97, 0.9) * (spec * 1.6 + glint * 0.12);
+        alpha = 0.35 + 0.5 * fres;
+      }
+      float dist = length(vWorld - cameraPosition);
+      float fog = 1.0 - exp(-pow(uFogDensity * dist, 2.0));
+      gl_FragColor = vec4(mix(col, uFogColor, fog), alpha);
+      #include <colorspace_fragment>
+    }`,
+});
+const waterGeo = new THREE.PlaneGeometry(400, 400, 200, 200).rotateX(-Math.PI / 2);
+const water = new THREE.Mesh(waterGeo, waterMat);
+water.position.y = WATER_Y;
+water.renderOrder = 2;
+scene.add(water);
+
+// ---------- Light shafts: soft sun beams falling from the surface ----------
+const shaftMat = new THREE.ShaderMaterial({
+  uniforms: {
+    uTime,
+    uColor: { value: new THREE.Color(0x9ff7ff) },
+  },
+  transparent: true,
+  depthWrite: false,
+  side: THREE.DoubleSide,
+  blending: THREE.AdditiveBlending,
+  vertexShader: `
+    varying float vY;
+    void main() {
+      vY = position.y;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }`,
+  fragmentShader: `
+    uniform float uTime;
+    uniform vec3 uColor;
+    varying float vY;
+    void main() {
+      float fade = clamp((vY + 10.5) / 21.0, 0.0, 1.0);    // brightest at the surface
+      float flicker = 0.85 + 0.15 * sin(uTime * 0.8 + vY * 0.4);
+      float a = pow(fade, 2.2) * 0.16 * flicker;
+      gl_FragColor = vec4(uColor, a);
+      #include <colorspace_fragment>
+    }`,
+});
+const shaftGeo = new THREE.CylinderGeometry(3.2, 0.8, 21, 24, 1, true);
+for (let i = 0; i < 7; i++) {
+  const shaft = new THREE.Mesh(shaftGeo, shaftMat);
+  shaft.position.set((rand() - 0.5) * 90, 5.5, (rand() - 0.5) * 70 - 10);   // top sits at the surface
+  shaft.rotation.z = (rand() - 0.5) * 0.12;
+  shaft.rotation.x = (rand() - 0.5) * 0.12;
+  shaft.renderOrder = 1;
+  scene.add(shaft);
+}
+
+// ---------- Seabed: height-field plane with a custom shader (sand, sun light, caustics, fog) ----------
+const seabedGeo = new THREE.PlaneGeometry(320, 320, 160, 160).rotateX(-Math.PI / 2);
+const seabedPos = seabedGeo.attributes.position;
+for (let i = 0; i < seabedPos.count; i++) {
+  seabedPos.setY(i, seabedHeight(seabedPos.getX(i), seabedPos.getZ(i)));
+}
+seabedPos.needsUpdate = true;
+seabedGeo.computeVertexNormals();
+
+const seabedMat = new THREE.ShaderMaterial({
+  uniforms: {
+    uTime,
+    uSun: { value: sun.position.clone().normalize() },
+    uFogColor: { value: SEA_COLOR },
+    uFogDensity: { value: FOG_DENSITY },
+  },
+  vertexShader: `
+    varying vec3 vWorld;
+    varying vec3 vNormal;
+    void main() {
+      vWorld = position;             // the seabed mesh has no transform, so local equals world
+      vNormal = normal;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }`,
+  fragmentShader: `
+    uniform float uTime;
+    uniform vec3 uSun;
+    uniform vec3 uFogColor;
+    uniform float uFogDensity;
+    varying vec3 vWorld;
+    varying vec3 vNormal;
+    // Warped sine ridges that look like the light network of caustics
+    float caustic(vec2 p, float t) {
+      vec2 q = p;
+      float v = 0.0;
+      for (int i = 0; i < 3; i++) {
+        q += 0.7 * vec2(sin(q.y * 1.4 + t), cos(q.x * 1.2 - t * 0.8));
+        v += 0.5 * sin(q.x + q.y + t * 0.5) + 0.5 * cos(q.x * 0.7 - q.y * 1.1 - t * 0.6);
+      }
+      return pow(1.0 - abs(sin(v * 1.5)), 6.0);
+    }
+    void main() {
+      vec3 N = normalize(vNormal);
+      float patch = 0.5 + 0.5 * sin(vWorld.x * 0.11 + sin(vWorld.z * 0.07) * 2.0);
+      vec3 sand = mix(vec3(0.46, 0.37, 0.25), vec3(0.2, 0.19, 0.17), patch * 0.35);
+      float sunDiffuse = max(dot(N, uSun), 0.0);
+      float skyFill = 0.5 + 0.5 * N.y;
+      vec3 col = sand * (0.22 + 0.9 * sunDiffuse + 0.35 * skyFill);
+      col += vec3(0.4, 0.9, 1.0) * caustic(vWorld.xz * 0.05, uTime) * 0.35 * sunDiffuse;
+      float dist = length(vWorld - cameraPosition);
+      float fog = 1.0 - exp(-pow(uFogDensity * dist, 2.0));
+      gl_FragColor = vec4(mix(col, uFogColor, fog), 1.0);
+      #include <colorspace_fragment>
+    }`,
+});
+const seabed = new THREE.Mesh(seabedGeo, seabedMat);
+scene.add(seabed);
+
+// Soft dark blob on the seabed under the octopus, so it looks grounded in the water
+const blobMat = new THREE.MeshBasicMaterial({
+  map: radialTexture([[0, 'rgba(0,25,35,0.9)'], [0.5, 'rgba(0,25,35,0.45)'], [1, 'rgba(0,25,35,0)']]),
+  transparent: true,
+  depthWrite: false,
+});
+const blob = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), blobMat);
+blob.scale.setScalar(9);
+blob.renderOrder = 1;
+scene.add(blob);
+
+// ---------- Plankton: slowly drifting glowing specks ----------
+const PLANKTON = 260;
+const planktonPos = new Float32Array(PLANKTON * 3);
+const planktonSpeed = new Float32Array(PLANKTON);
+for (let i = 0; i < PLANKTON; i++) {
+  planktonPos[i * 3] = (rand() - 0.5) * 160;
+  planktonPos[i * 3 + 1] = SEABED_Y + rand() * (WATER_Y - SEABED_Y);
+  planktonPos[i * 3 + 2] = (rand() - 0.5) * 160;
+  planktonSpeed[i] = 0.2 + rand() * 0.5;
+}
+const planktonAttr = new THREE.BufferAttribute(planktonPos, 3).setUsage(THREE.DynamicDrawUsage);
+const planktonGeo = new THREE.BufferGeometry();
+planktonGeo.setAttribute('position', planktonAttr);
+const plankton = new THREE.Points(
+  planktonGeo,
+  new THREE.PointsMaterial({
+    map: radialTexture([[0, 'rgba(255,255,255,1)'], [0.4, 'rgba(255,255,255,0.5)'], [1, 'rgba(255,255,255,0)']]),
+    color: 0xcfffff,
+    size: 0.9,
+    sizeAttenuation: true,
+    transparent: true,
+    opacity: 0.85,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  }),
+);
+plankton.frustumCulled = false;   // positions change every frame, so cached bounds would be stale
+scene.add(plankton);
+
+// ---------- Kelp and rocks on the seabed ----------
+const kelpMat = new THREE.MeshLambertMaterial({ color: 0x2e8f72, emissive: 0x06261c, emissiveIntensity: 0.6 });
+const kelpList = [];
+for (let i = 0; i < 16; i++) {
+  const x = (rand() - 0.5) * 120;
+  const z = (rand() - 0.5) * 120;
+  const h = 6 + rand() * 6;
+  const lean = rand() * TAU;
+  const spine = [];
+  for (let s = 0; s <= 6; s++) {
+    spine.push(new THREE.Vector3(Math.sin(lean + s * 0.6) * s * 0.5, (s * h) / 6, 0));
+  }
+  const kelp = new THREE.Mesh(
+    new THREE.TubeGeometry(new THREE.CatmullRomCurve3(spine), 20, 0.18, 6, false),
+    kelpMat,
+  );
+  kelp.position.set(x, seabedHeight(x, z) - 0.3, z);   // pivot is at the base, so it sways from the root
+  kelp.userData.phase = rand() * TAU;
+  scene.add(kelp);
+  kelpList.push(kelp);
+}
+
+const rockGeo = new THREE.DodecahedronGeometry(1, 0);
+const rockMat = new THREE.MeshLambertMaterial({ color: 0x4d6168, flatShading: true });
+for (let i = 0; i < 26; i++) {
+  const x = (rand() - 0.5) * 200;
+  const z = (rand() - 0.5) * 200;
+  const s = 1.2 + rand() * 3.2;
+  const rock = new THREE.Mesh(rockGeo, rockMat);
+  rock.scale.set(s, s * 0.6, s * (0.8 + rand() * 0.4));
+  rock.rotation.set(rand() * TAU, rand() * TAU, rand() * TAU);
+  rock.position.set(x, seabedHeight(x, z) + s * 0.1, z);   // partly sunk into the sand
+  scene.add(rock);
+}
+
+// ---------- The octopus ----------
+// Local frame: the head points along +Z, the tentacles hang down and trail toward -Z.
+const octo = new THREE.Group();
+octo.rotation.order = 'YXZ';   // turn first, then small pitch and roll in the octopus's own frame
+scene.add(octo);
+
+// Mantle (head): a stretched sphere. Tentacles and eyes hang off it.
+const mantleGeo = new THREE.SphereGeometry(1, 56, 40);
+const mantle = new THREE.Mesh(
+  mantleGeo,
+  new THREE.MeshLambertMaterial({ color: PINK, emissive: 0x4a0c2c, emissiveIntensity: 0.5 }),
+);
+mantle.position.y = 1.6;
+octo.add(mantle);
+
+// Rim light: a slightly larger shell, drawn additively, that only shows at the silhouette (fresnel)
+const rimMat = new THREE.ShaderMaterial({
+  uniforms: { uColor: { value: new THREE.Color(0xffd0ea) } },
+  transparent: true,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+  vertexShader: `
+    varying vec3 vNormal;
+    varying vec3 vView;
+    void main() {
+      vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      vNormal = normalize(normalMatrix * normal);
+      vView = normalize(-mv.xyz);
+      gl_Position = projectionMatrix * mv;
+    }`,
+  fragmentShader: `
+    uniform vec3 uColor;
+    varying vec3 vNormal;
+    varying vec3 vView;
+    void main() {
+      float facing = max(dot(normalize(vNormal), normalize(vView)), 0.0);
+      float rim = pow(1.0 - facing, 2.6);
+      gl_FragColor = vec4(uColor * rim * 1.2, 1.0);
+      #include <colorspace_fragment>
+    }`,
+});
+const rim = new THREE.Mesh(mantleGeo, rimMat);
+rim.scale.setScalar(1.04);
+mantle.add(rim);
+
+// Pale spots on the mantle: small flat discs placed just above the surface
+const spotGeo = new THREE.CircleGeometry(0.11, 14);
+const spotMat = new THREE.MeshLambertMaterial({ color: 0xffe3f2, emissive: 0x552040, emissiveIntensity: 0.4 });
+const FORWARD = new THREE.Vector3(0, 0, 1);
+for (let i = 0; i < 18; i++) {
+  const theta = rand() * TAU;
+  const phi = 0.3 + rand() * 1.3;
+  const n = new THREE.Vector3(Math.sin(phi) * Math.cos(theta), Math.cos(phi), Math.sin(phi) * Math.sin(theta));
+  const spot = new THREE.Mesh(spotGeo, spotMat);
+  spot.position.copy(n).multiplyScalar(1.01);
+  spot.quaternion.setFromUnitVectors(FORWARD, n);
+  mantle.add(spot);
+}
+
+// Two big eyes. Each has a white ball, a dark pupil and a small glint.
+// The pupils aim at the camera, and both eyes blink now and then.
+const eyeWhiteMat = new THREE.MeshStandardMaterial({ color: 0xfff6fa, roughness: 0.2 });
+const pupilMat = new THREE.MeshStandardMaterial({ color: 0x080308, roughness: 0.35 });
+const glintMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+const eyeGeo = new THREE.SphereGeometry(0.36, 32, 24);
+const pupilGeo = new THREE.SphereGeometry(0.16, 24, 16);
+const glintGeo = new THREE.SphereGeometry(0.04, 12, 8);
+const eyes = [];
+for (const side of [-1, 1]) {
+  const eye = new THREE.Group();
+  eye.position.set(side * 0.62, 1.12, 0.72);
+  eye.add(new THREE.Mesh(eyeGeo, eyeWhiteMat));
+  const pupil = new THREE.Mesh(pupilGeo, pupilMat);
+  const glint = new THREE.Mesh(glintGeo, glintMat);
+  glint.position.set(0.06, 0.07, 0.12);
+  pupil.add(glint);
+  eye.add(pupil);
+  octo.add(eye);
+  eyes.push({ group: eye, pupil, gaze: new THREE.Vector3(0, 0, 1) });
+}
+let blinkAt = 2.2;     // time of the next blink
+let blinkStart = -1;   // -1 means the eyes are open
+
+// Eight tentacles. Each one is a tube whose centre line is recomputed every frame:
+// a wave runs from its base to its tip, and the wave grows toward the tip. That moving wave is the swimming.
+const ARMS = 8;
+const RINGS = 26;      // cross-sections along each arm
+const SIDES = 10;      // vertices around each cross-section
+const tentacleMat = new THREE.MeshLambertMaterial({
+  vertexColors: true,
+  side: THREE.DoubleSide,
+  emissive: 0x3a0a22,
+  emissiveIntensity: 0.5,
+});
+const arms = [];
+for (let k = 0; k < ARMS; k++) {
+  const ang = ((k + 0.5) / ARMS) * TAU;
+  const root = new THREE.Vector3(Math.cos(ang) * 0.66, 0.62, Math.sin(ang) * 0.66);   // under the mantle
+  const dir = new THREE.Vector3(Math.cos(ang) * 0.5, -1, Math.sin(ang) * 0.5 - 0.55).normalize();  // down and back
+  const side = new THREE.Vector3().crossVectors(dir, AXIS_Y).normalize();
+  const up2 = new THREE.Vector3().crossVectors(side, dir).normalize();
+  const length = 3.4 + rand() * 0.8;
+
+  const count = (RINGS + 1) * (SIDES + 1);
+  const positions = new Float32Array(count * 3);
+  const normals = new Float32Array(count * 3);
+  const colors = new Float32Array(count * 3);
+  const indices = [];
+
+  // Colour: pink at the base, deeper magenta toward the tip (fixed, so set once)
+  for (let i = 0; i <= RINGS; i++) {
+    const c = new THREE.Color().copy(PINK).lerp(TIP, (i / RINGS) * 0.8);
+    for (let j = 0; j <= SIDES; j++) {
+      const v = (i * (SIDES + 1) + j) * 3;
+      colors[v] = c.r;
+      colors[v + 1] = c.g;
+      colors[v + 2] = c.b;
+    }
+  }
+  // Two triangles per quad; the winding faces outward
+  for (let i = 0; i < RINGS; i++) {
+    for (let j = 0; j < SIDES; j++) {
+      const a0 = i * (SIDES + 1) + j;
+      const b0 = a0 + SIDES + 1;
+      indices.push(a0, a0 + 1, b0, a0 + 1, b0 + 1, b0);
+    }
+  }
+
+  const posAttr = new THREE.BufferAttribute(positions, 3).setUsage(THREE.DynamicDrawUsage);
+  const normAttr = new THREE.BufferAttribute(normals, 3).setUsage(THREE.DynamicDrawUsage);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', posAttr);
+  geo.setAttribute('normal', normAttr);
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geo.setIndex(indices);
+
+  const mesh = new THREE.Mesh(geo, tentacleMat);
+  mesh.frustumCulled = false;   // the tube moves every frame, so its cached bounds would be stale
+  octo.add(mesh);
+
+  arms.push({
+    root, dir, side, up2, length,
+    phase: k * 0.8,            // neighbouring arms are out of step, so the wave ripples around the body
+    pts: Array.from({ length: RINGS + 1 }, () => new THREE.Vector3()),
+    positions, normals, posAttr, normAttr,
+  });
+}
+
+// Scratch objects reused every frame (no garbage per frame)
+const T = new THREE.Vector3();
+const N = new THREE.Vector3();
+const B = new THREE.Vector3();
+const prevT = new THREE.Vector3();
+const tmpQuat = new THREE.Quaternion();
+
+// Rebuild one arm's tube from its current centre line
+function updateArm(arm, t, beat) {
+  const { pts, positions, normals, root, dir, side, up2, length, phase } = arm;
+
+  // 1) Centre line: straight along the arm's direction, plus a sideways wave that grows toward the tip
+  for (let i = 0; i <= RINGS; i++) {
+    const s = i / RINGS;
+    const wave = t * 3.6 - s * 6.0 + phase;          // the wave travels from base to tip
+    const amp = (0.1 + 0.9 * s * s) * (0.8 + 0.2 * beat);
+    pts[i].copy(root)
+      .addScaledVector(dir, length * s)
+      .addScaledVector(side, Math.sin(wave) * amp)
+      .addScaledVector(up2, Math.cos(wave) * amp * 0.5);   // the second axis makes the arm curl
+  }
+
+  // 2) Frames along the centre line, carried forward from ring to ring so the tube does not twist
+  for (let i = 0; i <= RINGS; i++) {
+    const s = i / RINGS;
+    T.subVectors(pts[Math.min(i + 1, RINGS)], pts[Math.max(i - 1, 0)]).normalize();
+    if (i === 0) {
+      N.crossVectors(T, Math.abs(T.y) < 0.9 ? AXIS_Y : AXIS_X).normalize();
+    } else {
+      N.applyQuaternion(tmpQuat.setFromUnitVectors(prevT, T));
+    }
+    B.crossVectors(T, N);
+    prevT.copy(T);
+
+    // 3) Write the ring: a circle of vertices around the centre point, with radial normals
+    const r = 0.26 * Math.pow(1 - s, 0.85) + 0.035;   // thick at the base, thin at the tip
+    const cx = pts[i].x;
+    const cy = pts[i].y;
+    const cz = pts[i].z;
+    for (let j = 0; j <= SIDES; j++) {
+      const th = (j / SIDES) * TAU;
+      const cs = Math.cos(th);
+      const sn = Math.sin(th);
+      const nx = cs * N.x + sn * B.x;
+      const ny = cs * N.y + sn * B.y;
+      const nz = cs * N.z + sn * B.z;
+      const v = (i * (SIDES + 1) + j) * 3;
+      positions[v] = cx + nx * r;
+      positions[v + 1] = cy + ny * r;
+      positions[v + 2] = cz + nz * r;
+      normals[v] = nx;
+      normals[v + 1] = ny;
+      normals[v + 2] = nz;
+    }
+  }
+  arm.posAttr.needsUpdate = true;
+  arm.normAttr.needsUpdate = true;
+}
+
+// ---------- Swimming path: a slow loop across the ocean ----------
+function pathAt(t, out) {
+  out.set(
+    Math.sin(t * 0.11) * 22,
+    3.2 + Math.sin(t * 0.37) * 1.4,
+    Math.sin(t * 0.22) * 9 - 4,
+  );
+  return out;
+}
+
+// ---------- Animation loop ----------
+const startTime = performance.now();
+let lastTime = 0;
+const octoPos = new THREE.Vector3();
+const ahead = new THREE.Vector3();
+const focus = new THREE.Vector3();
+const shift = new THREE.Vector3();
+const camLocal = new THREE.Vector3();
+const toCam = new THREE.Vector3();
+
+function animate() {
+  const t = (performance.now() - startTime) / 1000;
+  const dt = Math.min(t - lastTime, 0.05);
+  lastTime = t;
+  uTime.value = t;
+  const beat = Math.sin(t * 3.6);   // one swimming stroke: drives the jet pulse and the tentacle wave
+
+  // Octopus: follow the loop and turn to face the direction of travel
+  pathAt(t, octoPos);
+  pathAt(t + 0.05, ahead);
+  octo.position.copy(octoPos);
+  octo.rotation.y = Math.atan2(ahead.x - octoPos.x, ahead.z - octoPos.z);
+  octo.rotation.x = Math.sin(t * 1.7) * 0.05;   // nose bob
+  octo.rotation.z = Math.sin(t * 1.1) * 0.06;   // roll
+  mantle.scale.set(1 - 0.02 * beat, 1.3 + 0.05 * beat, 1.05 - 0.02 * beat);   // mantle pulses like a jet
+
+  // Tentacles: rebuild each arm from its moving centre line
+  for (const arm of arms) updateArm(arm, t, beat);
+
+  // Eyes: pupils glance toward the camera (smoothed), and the eyes blink
+  octo.updateMatrixWorld();
+  camLocal.copy(camera.position);
+  octo.worldToLocal(camLocal);
+  for (const eye of eyes) {
+    toCam.subVectors(camLocal, eye.group.position).normalize();
+    eye.gaze.lerp(toCam, 0.08).normalize();
+    eye.pupil.position.copy(eye.gaze).multiplyScalar(0.3);
+  }
+  if (blinkStart < 0 && t > blinkAt) blinkStart = t;
+  let lid = 1;
+  if (blinkStart >= 0) {
+    const k = (t - blinkStart) / 0.22;
+    if (k >= 1) {
+      blinkStart = -1;
+      blinkAt = t + 2.5 + rand() * 3;
+    } else {
+      lid = 1 - 0.9 * Math.sin(k * Math.PI);   // squash the eyes flat for a moment
+    }
+  }
+  for (const eye of eyes) eye.group.scale.y = lid;
+
+  // Kelp sways from its base; plankton drifts upward and wraps around
+  for (const kelp of kelpList) {
+    const ph = kelp.userData.phase;
+    kelp.rotation.z = Math.sin(t * 0.9 + ph) * 0.1;
+    kelp.rotation.x = Math.cos(t * 0.7 + ph) * 0.07;
+  }
+  for (let i = 0; i < PLANKTON; i++) {
+    const k = i * 3;
+    planktonPos[k] += Math.sin(t * 0.4 + i) * 0.3 * dt;
+    planktonPos[k + 1] += planktonSpeed[i] * dt;
+    if (planktonPos[k + 1] > WATER_Y) planktonPos[k + 1] = SEABED_Y + 1;
+  }
+  planktonAttr.needsUpdate = true;
+
+  // Shadow blob sits on the seabed under the octopus, and gets lighter the higher it swims
+  const floorY = seabedHeight(octoPos.x, octoPos.z);
+  blob.position.set(octoPos.x, floorY + 0.15, octoPos.z);
+  blobMat.opacity = THREE.MathUtils.clamp(1 - (octoPos.y - floorY) / 24, 0.2, 0.9);
+
+  // The orbit centre follows the octopus. The camera moves by the same amount,
+  // so the angle you are viewing from does not change.
+  focus.copy(octoPos);
+  focus.y += 1.5;
+  shift.subVectors(focus, controls.target).multiplyScalar(0.04);
+  controls.target.add(shift);
+  camera.position.add(shift);
+  controls.update();
+
+  renderer.render(scene, camera);
+}
+
+renderer.setAnimationLoop(animate);
+
+// ---------- Resize: keep the aspect ratio correct and the canvas full-screen ----------
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+#!/bin/sh
+# Block commits that are not made as the public account, or that carry personal details.
+. "$(dirname "$0")/identity.sh"
+
+for v in GIT_AUTHOR_IDENT GIT_COMMITTER_IDENT; do
+  ident=$(git var $v)
+  case "$ident" in
+    "$WANT_NAME <$WANT_EMAIL>"*) ;;
+    *) echo "pre-commit: $v is \"${ident% * *}\", expected \"$WANT_NAME <$WANT_EMAIL>\"." >&2; exit 1 ;;
+  esac
+done
+
+hits=$(git diff --cached -U0 --no-color | grep '^+' | grep -v '^+++' | grep -inE "$PERSONAL")
+names=$(git diff --cached --name-only | grep -iE "$PERSONAL")
+if [ -n "$hits$names" ]; then
+  echo "pre-commit: staged changes contain personal details:" >&2
+  printf '%s\n%s\n' "$names" "$hits" | sed '/^$/d' | head -20 >&2
+  exit 1
+fi
