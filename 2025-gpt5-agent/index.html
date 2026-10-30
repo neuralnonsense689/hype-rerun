@@ -78,7 +78,8 @@
 </div>
 
 <h2>Two smaller agent tasks</h2>
-<img src="small-tasks.png" alt="Table. Building GNU coreutils 5.0 on Alpine: GPT-5-Codex 2 of 3, Haiku 5.5 3 of 3, Terra 3 of 3. Fixing a gRPC bug in a Go tracing tool: GPT-5.2 2 of 3, Haiku 5.5 3 of 3, Terra 3 of 3.">
+<img src="small-tasks-cost.png" alt="Dot chart of cost per try, log scale. Coreutils: GPT-5-Codex 62 cents to $1.37, 2 of 3 passed; Haiku 5.5 2.8 to 4.4 cents, 3 of 3; Terra 8.1 to 17 cents, 3 of 3. gRPC bug: GPT-5.2 22 to 75 cents, 2 of 3; GPT-5.2-Codex 37 to 52 cents, 3 of 3; Haiku 5.5 2.5 to 2.9 cents, 3 of 3; Terra 3.9 to 6.1 cents, 3 of 3.">
+<img src="small-tasks-time.png" alt="Dot chart of time per try. Coreutils, model thinking time: GPT-5-Codex 5.8 to 17.8 minutes; Haiku 5.5 2.1 to 3.4; Terra 1.1 to 1.7. gRPC bug, total time with grading: GPT-5.2 26.6 to 33.6 minutes; GPT-5.2-Codex 13.2 to 15.9; Haiku 5.5 5.5 to 6.3; Terra 3.4 to 5.4.">
 <p>Two tasks from public agent benchmarks, picked because GPT-5-family models took 20 minutes or more on them and didn't always pass. Each model got three tries, with the benchmarks' own Docker images, task prompts and graders.</p>
 
 <h3>Build GNU coreutils 5.0 (2003) on Alpine Linux, offline</h3>
@@ -95,7 +96,8 @@
 <p>From OTelBench. An end-to-end gRPC test fails in a compile-time instrumentation tool for Go; the agent has 30 minutes to find and fix the bug. All six new tries changed the same function, with the same logic as the reference fix, and the gRPC test actually ran and passed.</p>
 <div class="scroll"><table>
   <tr><th>Model</th><th>Passed</th><th>Cost per try</th><th>Time per try</th></tr>
-  <tr><td><span class="m gpt5">GPT-5.2</span> (Jan 2026)</td><td>2 of 3 (1 within 30 min)</td><td class="num">$0.22–0.75</td><td class="num">27–34 min</td></tr>
+  <tr><td><span class="m gpt5">GPT-5.2</span> (Dec 2025)</td><td>2 of 3 (1 within 30 min)</td><td class="num">$0.22–0.75</td><td class="num">27–34 min</td></tr>
+  <tr><td><span class="m gpt5">GPT-5.2-Codex</span> (Dec 2025)</td><td>3 of 3</td><td class="num">$0.37–0.52</td><td class="num">13–16 min</td></tr>
   <tr><td><span class="m haiku">Haiku 5.5</span> high</td><td>3 of 3</td><td class="num">$0.03</td><td class="num">5–6 min</td></tr>
   <tr class="terra"><td><span class="m terra">GPT&#8209;6.1 Terra</span> high</td><td>3 of 3</td><td class="num">$0.04–0.06</td><td class="num">3–5 min</td></tr>
 </table></div>
