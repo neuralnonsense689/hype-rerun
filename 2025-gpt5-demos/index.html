@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>2025 GPT-5 demos, rerun on Haiku 5.5</title>
-<meta name="description" content="Three GPT-5 demos from August–September 2025, rerun with the same prompts on Claude Haiku 5.5 in October 2026.">
+<meta name="description" content="Three GPT-5 demos from August–September 2025, rerun with the same prompts on Claude Haiku 5.5 in October 2026, plus the same prompts on GPT-6.1 Terra.">
 <link rel="icon" href="../goldfish.png">
 <style>
   :root { --bg: #0b0d10; --fg: #e8eaed; --dim: #9aa0a6; --line: #262a31; --accent: #f08a3e; }
@@ -31,7 +31,7 @@
 <main>
 <a class="back" href="../">hype rerun</a>
 <h1>2025 GPT-5 demos, rerun on Haiku 5.5</h1>
-<p class="dim">October 2026. Three demos people shared around the GPT-5 launch, rerun with the same prompts on Claude Haiku 5.5 at two effort levels.</p>
+<p class="dim">October 2026. Three demos people shared around the GPT-5 launch, rerun with the same prompts on Claude Haiku 5.5 at two effort levels. <a href="#terra">Added later: the same prompts on GPT-6.1 Terra.</a></p>
 
 <h2>3D aquarium</h2>
 <video src="clips/aquarium.mp4" autoplay muted loop playsinline controls></video>
@@ -68,7 +68,39 @@
   <a href="https://github.com/openai/gpt-5-coding-examples">OpenAI's examples repo</a>
 </div>
 
-<h2>Runs</h2>
+<h2 id="terra">Added later: the same prompts on GPT-6.1 Terra</h2>
+<p class="dim">Added October 30, 2026, after the post went up.</p>
+<p>With only Haiku, you can't tell whether Haiku is special or whether cheap models in general have caught up. So I gave the same three prompts to OpenAI's GPT-6.1 Terra on high reasoning effort. Each one ran once, with no follow-ups. Terra's list price is $1 per million input tokens and $5 per million output tokens, ten times Haiku 5.5's.</p>
+<video src="clips/terra-aquarium.mp4" autoplay muted loop playsinline controls></video>
+<p>Terra replaced the Space Invaders page with the aquarium, which the plan allows ("instead of/alongside"). It has all five species, plants, bubbles and a species guide. It skipped the glass tank walls the plan asks for. Haiku built the tank and kept a switch to Space Invaders.</p>
+<video src="clips/terra-octopus.mp4" autoplay muted loop playsinline controls></video>
+<p>Terra's octopus has a moving water surface but no sea floor, rocks or seaweed, and it drifts near the middle instead of swimming across. Haiku on high added more of the scene. Terra wrote a comment in the file saying Octocode MCP wasn't available, then went ahead without it, as Haiku did.</p>
+<video src="clips/terra-solar.mp4" autoplay muted loop playsinline controls></video>
+<p>The solar system is where Terra looks best: a planet list, an info card for the selected planet, and speed and zoom controls.</p>
+<div class="runs">
+  <a href="terra/aquarium-high/">Terra high aquarium, live</a>
+  <a href="terra/octopus-high/">Terra high octopus, live</a>
+  <a href="terra/solar-high/">Terra high solar system, live</a>
+</div>
+<table>
+  <tr><th>Demo</th><th>Haiku 5.5 high</th><th>GPT-6.1 Terra high</th></tr>
+  <tr><td>Aquarium</td><td class="num">$0.11 · 21 min</td><td class="num">$0.10 · 3 min</td></tr>
+  <tr><td>Octopus</td><td class="num">$0.07 · 6 min</td><td class="num">$0.05 · 79 s</td></tr>
+  <tr><td>Solar system</td><td class="num">$0.04 · 3 min</td><td class="num">$0.04 · 65 s</td></tr>
+  <tr><td><strong>Total</strong></td><td class="num"><strong>$0.21</strong></td><td class="num"><strong>$0.19</strong></td></tr>
+</table>
+<p>The costs are close even though Terra costs ten times as much per token, because Terra wrote far fewer tokens. On the octopus it produced 7,702 output tokens, while Haiku produced 88,716, most of them thinking. Times are wall-clock times on each company's service, so treat them as rough.</p>
+<p>How the Terra runs differ from the Haiku runs:</p>
+<ul>
+  <li>Terra ran in the Codex CLI (0.165.0, <code>codex exec</code>), which always gives the model a shell. So on the octopus and solar system, Terra could run commands. It wrote the files from the shell and ran a JavaScript syntax check with Node. Haiku could only read and write files there. On the aquarium, both could run commands.</li>
+  <li>Neither could open a browser, so neither saw its page render. Web search, my own Codex settings, skills, plugins and image generation were turned off.</li>
+  <li>Network access was off for the octopus and solar system, and on for the aquarium so npm could install packages. Terra's first <code>npm install</code> failed on a cache permission error in the Codex sandbox. Terra retried with a temporary cache folder on its own.</li>
+  <li>Costs are the tokens each run used, priced at OpenAI's standard API rates ($1.00 input, $0.05 cached input, $5.00 output per million tokens). I ran it on a Codex subscription, so no money was actually charged.</li>
+  <li>Only one effort level (high) and one run each, so this shows what one try looked like, not which model is better.</li>
+  <li>The Terra aquarium was built as static files for hosting, the same way as Haiku's.</li>
+</ul>
+
+<h2>All Haiku runs</h2>
 <table>
   <tr><th>Demo</th><th>Effort</th><th>Cost</th><th>Time</th></tr>
   <tr><td>Aquarium</td><td>high</td><td class="num">$0.11</td><td class="num">21 min</td></tr>

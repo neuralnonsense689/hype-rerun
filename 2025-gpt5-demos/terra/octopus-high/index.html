@@ -1,0 +1,235 @@
+<!doctype html>
+<!-- Octocode MCP was unavailable in this environment, so the requested research could not be performed. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drifting in the blue</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #062b40; }
+  canvas { display: block; width: 100%; height: 100%; }
+  .caption { position: fixed; left: clamp(24px, 5vw, 70px); bottom: clamp(24px, 6vh, 64px); color: #d7f8f4; font: 12px/1.5 system-ui, sans-serif; letter-spacing: .18em; text-transform: uppercase; pointer-events: none; text-shadow: 0 2px 12px #062b40; }
+  .caption strong { display: block; color: #fff4ed; font: italic 400 clamp(27px, 4vw, 48px)/1.15 Georgia, serif; letter-spacing: 0; text-transform: none; margin: 8px 0; }
+  .caption span { opacity: .65; letter-spacing: .1em; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@latest/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@latest/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div class="caption">A little ocean daydream<strong>Drifting in the blue</strong><span>Drag to explore · scroll to dive</span></div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b5369);
+scene.fog = new THREE.FogExp2(0x0a5266, 0.035);
+const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 100);
+camera.position.set(9, 4, 19);
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+document.body.prepend(renderer.domElement);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0.2, 0);
+controls.enableDamping = true;
+controls.minDistance = 7;
+controls.maxDistance = 30;
+controls.maxPolarAngle = Math.PI * 0.78;
+controls.update();
+
+// Soft, cool fill and warm sunlight give the pink surfaces their shape.
+scene.add(new THREE.HemisphereLight(0xc4faff, 0x17435a, 2.2));
+const sun = new THREE.DirectionalLight(0xffe8d8, 3.1);
+sun.position.set(-5, 10, 8);
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0x56dce9, 1.3);
+fill.position.set(6, 3, -8);
+scene.add(fill);
+
+// A procedural, gently undulating surface: no image textures are needed.
+const waterUniforms = { time: { value: 0 } };
+const water = new THREE.Mesh(new THREE.PlaneGeometry(100, 100, 55, 55), new THREE.ShaderMaterial({
+  uniforms: waterUniforms, transparent: true, side: THREE.DoubleSide, depthWrite: false,
+  vertexShader: `
+    uniform float time;
+    varying vec2 vUv;
+    varying float vWave;
+    void main() {
+      vUv = uv;
+      vec3 p = position;
+      float a = sin(p.x * .33 + time * .65) * cos(p.y * .25 - time * .45);
+      float b = sin(p.x * .7 + p.y * .45 + time * .9);
+      p.z += a * .28 + b * .09;
+      vWave = a * .5 + b * .2;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+    }`,
+  fragmentShader: `
+    varying vec2 vUv;
+    varying float vWave;
+    void main() {
+      vec3 color = mix(vec3(.05, .39, .47), vec3(.42, .84, .82), smoothstep(-.5, .65, vWave));
+      gl_FragColor = vec4(color, .35);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }`
+}));
+water.rotation.x = -Math.PI / 2;
+water.position.y = 6.5;
+scene.add(water);
+
+// Build the octopus from lightweight spheres and eight flexible tube meshes.
+const octopus = new THREE.Group();
+scene.add(octopus);
+const pink = new THREE.MeshStandardMaterial({ color: 0xf37f9b, roughness: .48, metalness: .02 });
+const palePink = new THREE.MeshStandardMaterial({ color: 0xffb1bd, roughness: .62 });
+const dark = new THREE.MeshStandardMaterial({ color: 0x102b38, roughness: .2 });
+const white = new THREE.MeshStandardMaterial({ color: 0xfff7ed, roughness: .3 });
+const sphere = new THREE.SphereGeometry(1, 28, 20);
+function ball(parent, material, position, scale) {
+  const mesh = new THREE.Mesh(sphere, material);
+  mesh.position.set(...position);
+  mesh.scale.set(...scale);
+  parent.add(mesh);
+  return mesh;
+}
+ball(octopus, pink, [0, 1.15, 0], [1.34, 1.65, 1.16]);
+ball(octopus, pink, [0, -.15, .05], [1.22, .8, 1.03]);
+// A transparent view-dependent shell adds a soft rim to the mantle.
+const rim = new THREE.Mesh(sphere, new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  uniforms: {},
+  vertexShader: `varying vec3 vNormal; varying vec3 vView; void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); vNormal = normalize(normalMatrix * normal); vView = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }`,
+  fragmentShader: `varying vec3 vNormal; varying vec3 vView; void main() { float r = pow(1.0 - max(dot(normalize(vNormal), normalize(vView)), 0.0), 2.5); gl_FragColor = vec4(1.0, .45, .58, r * .38); }`
+}));
+rim.position.y = 1.15;
+rim.scale.set(1.36, 1.67, 1.18);
+octopus.add(rim);
+for (const side of [-1, 1]) {
+  ball(octopus, white, [side * .53, .48, .96], [.37, .43, .25]);
+  ball(octopus, dark, [side * .53, .46, 1.18], [.205, .25, .12]);
+  ball(octopus, white, [side * .59 - .045, .56, 1.282], [.065, .075, .035]);
+  ball(octopus, palePink, [side * .92, -.03, .79], [.20, .11, .06]);
+}
+// A small curved smile made from a simple tube.
+const smileCurve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(-.25, -.12, 1.03), new THREE.Vector3(0, -.33, 1.12), new THREE.Vector3(.25, -.12, 1.03));
+octopus.add(new THREE.Mesh(new THREE.TubeGeometry(smileCurve, 16, .025, 6, false), new THREE.MeshStandardMaterial({ color: 0x8e405b, roughness: .7 })));
+
+const segments = 28, sides = 8;
+const tentacles = [];
+const suckerGeometry = new THREE.SphereGeometry(1, 8, 6);
+for (let i = 0; i < 8; i++) {
+  const positions = new Float32Array((segments + 1) * (sides + 1) * 3);
+  const indices = [];
+  for (let j = 0; j < segments; j++) for (let k = 0; k < sides; k++) {
+    const a = j * (sides + 1) + k, b = a + sides + 1;
+    indices.push(a, b, a + 1, b, b + 1, a + 1);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3).setUsage(THREE.DynamicDrawUsage));
+  geometry.setIndex(indices);
+  const mesh = new THREE.Mesh(geometry, pink);
+  mesh.frustumCulled = false;
+  octopus.add(mesh);
+  const suckers = [];
+  for (let j = 0; j < 7; j++) {
+    const sucker = new THREE.Mesh(suckerGeometry, palePink);
+    octopus.add(sucker);
+    suckers.push(sucker);
+  }
+  tentacles.push({ geometry, suckers, angle: i * Math.PI * 2 / 8 + Math.PI / 8, index: i });
+}
+const points = Array.from({ length: segments + 1 }, () => new THREE.Vector3());
+const tangent = new THREE.Vector3(), normal = new THREE.Vector3(), binormal = new THREE.Vector3();
+const up = new THREE.Vector3(0, 1, 0);
+function animateTentacle(tentacle, time) {
+  const { angle, index, geometry, suckers } = tentacle;
+  const dx = Math.cos(angle), dz = Math.sin(angle);
+  // Waves travel from root to tip, with alternating curls for a swimming motion.
+  for (let j = 0; j <= segments; j++) {
+    const t = j / segments;
+    const wave = Math.sin(time * 1.5 - t * 5.2 + index * .9);
+    const sweep = Math.sin(time * .9 + index * 1.4 + t * 3.5);
+    const radial = .7 + t * 3.25;
+    points[j].set(dx * radial - dz * sweep * t * .42, -.42 - t * .95 + wave * t * .65 + Math.sin(t * Math.PI) * .25, dz * radial + dx * sweep * t * .42);
+  }
+  const pos = geometry.attributes.position;
+  for (let j = 0; j <= segments; j++) {
+    const t = j / segments;
+    tangent.subVectors(points[Math.min(j + 1, segments)], points[Math.max(j - 1, 0)]).normalize();
+    normal.crossVectors(tangent, up).normalize();
+    binormal.crossVectors(tangent, normal).normalize();
+    const radius = .26 * Math.pow(1 - t, .8) + .035;
+    for (let k = 0; k <= sides; k++) {
+      const a = k / sides * Math.PI * 2;
+      const x = Math.cos(a) * radius, y = Math.sin(a) * radius;
+      pos.setXYZ(j * (sides + 1) + k, points[j].x + normal.x * x + binormal.x * y, points[j].y + normal.y * x + binormal.y * y, points[j].z + normal.z * x + binormal.z * y);
+    }
+  }
+  pos.needsUpdate = true;
+  geometry.computeVertexNormals();
+  suckers.forEach((sucker, j) => {
+    const n = 4 + j * 3;
+    const t = n / segments, r = .26 * Math.pow(1 - t, .8) + .035;
+    sucker.position.copy(points[n]);
+    sucker.position.y -= r * .86;
+    const size = .085 * (1 - t * .55);
+    sucker.scale.set(size, size * .42, size);
+  });
+}
+
+// Tiny suspended bubbles add depth without external assets.
+const bubbleCount = 85;
+const bubblePositions = new Float32Array(bubbleCount * 3);
+const bubbleSpeeds = [];
+for (let i = 0; i < bubbleCount; i++) {
+  bubblePositions[i * 3] = (Math.random() - .5) * 35;
+  bubblePositions[i * 3 + 1] = Math.random() * 20 - 10;
+  bubblePositions[i * 3 + 2] = (Math.random() - .5) * 30;
+  bubbleSpeeds.push(.15 + Math.random() * .3);
+}
+const bubbleGeometry = new THREE.BufferGeometry();
+bubbleGeometry.setAttribute('position', new THREE.BufferAttribute(bubblePositions, 3).setUsage(THREE.DynamicDrawUsage));
+const bubbles = new THREE.Points(bubbleGeometry, new THREE.PointsMaterial({ color: 0xc1ffff, size: .075, transparent: true, opacity: .5, depthWrite: false, sizeAttenuation: true }));
+scene.add(bubbles);
+
+let previousTime = performance.now();
+let elapsed = 0;
+renderer.setAnimationLoop((now) => {
+  const dt = Math.min((now - previousTime) / 1000, .05);
+  previousTime = now;
+  elapsed += dt;
+  waterUniforms.time.value = elapsed;
+  octopus.position.set(Math.sin(elapsed * .23) * 1.6, Math.sin(elapsed * .85) * .25, Math.cos(elapsed * .23) * .6);
+  octopus.rotation.y = Math.sin(elapsed * .23) * .22;
+  octopus.rotation.z = Math.sin(elapsed * .7) * .045;
+  tentacles.forEach(t => animateTentacle(t, elapsed));
+  const positions = bubbleGeometry.attributes.position;
+  for (let i = 0; i < bubbleCount; i++) {
+    let y = positions.getY(i) + bubbleSpeeds[i] * dt;
+    if (y > 9) y = -10;
+    positions.setY(i, y);
+  }
+  positions.needsUpdate = true;
+  controls.update();
+  renderer.render(scene, camera);
+});
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>
