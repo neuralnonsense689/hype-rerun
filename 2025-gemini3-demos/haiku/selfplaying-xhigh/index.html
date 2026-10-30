@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Self-Playing Breakout</title>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 35%, #1e2446 0%, #080a16 75%);
+    }
+    canvas {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      border-radius: 18px;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <script>
+    const W = 400;
+    const H = 600;
+    const PADDLE_W = 84;
+    const PADDLE_H = 10;
+    const PADDLE_Y = H - 36;
+    const BALL_R = 7;
+    const COLS = 10;
+    const BRICK_H = 16;
+    const BRICK_GAP = 5;
+    const BRICK_W = (W - 40 - BRICK_GAP * (COLS - 1)) / COLS;
+    const BRICK_TOP = 96;
+    const START_SPEED = 5;
+    const MAX_SPEED = 8.5;
+    const SERVE_FRAMES = 45;
+
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+
+    let phase = 'play';   // 'play' or 'over'
+    let paused = false;
+    let bricks = [];
+    let particles = [];
+    let trail = [];
+    let paddle = { x: W / 2 };
+    let ball = { x: W / 2, y: PADDLE_Y - BALL_R, vx: 0, vy: 0 };
+    let score = 0;
+    let lives = 3;
+    let level = 1;
+    let speed = START_SPEED;
+    let serveTimer = 0;
+    let aimOffset = 0;
+    let aimTimer = 0;
+    let overTimer = 0;
+    let clock = 0;
+
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+    function resize() {
+      const dpr = window.devicePixelRatio || 1;
+      const scale = Math.min(window.innerWidth / W, window.innerHeight / H) * 0.92;
+      canvas.style.width = W * scale + 'px';
+      canvas.style.height = H * scale + 'px';
+      canvas.width = Math.round(W * scale * dpr);
+      canvas.height = Math.round(H * scale * dpr);
+    }
+
+    function buildBricks() {
+      const rows = Math.min(2 + level, 8);
+      bricks = [];
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < COLS; c++) {
+          bricks.push({
+            x: 20 + c * (BRICK_W + BRICK_GAP),
+            y: BRICK_TOP + r * (BRICK_H + BRICK_GAP),
+            hue: 280 - r * 26,
+            alive: true,
+          });
+        }
+      }
+    }
+
+    function serve() {
+      ball.vx = 0;
+      ball.vy = 0;
+      serveTimer = SERVE_FRAMES;
+      trail = [];
+    }
+
+    function launch() {
+      const angle = (Math.random() - 0.5) * 0.9;
+      ball.vx = speed * Math.sin(angle);
+      ball.vy = -speed * Math.cos(angle);
+    }
+
+    function burst(x, y, hue) {
+      for (let i = 0; i < 12; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const s = 0.6 + Math.random() * 2.4;
+        particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 1, hue });
+      }
+    }
+
+    // Where the ball will cross the paddle line, bouncing off the side walls.
+    function predictX() {
+      if (ball.vy <= 0) return W / 2;
+      const t = (PADDLE_Y - ball.y) / ball.vy;
+      const span = W - 2 * BALL_R;
+      let u = ball.x - BALL_R + ball.vx * t;
+      u = ((u % (2 * span)) + 2 * span) % (2 * span);
+      if (u > span) u = 2 * span - u;
+      return u + BALL_R;
+    }
+
+    function updatePaddle(steps) {
+      // A small random aim offset makes the paddle look human and varies the bounce angles.
+      aimTimer -= steps;
+      if (aimTimer <= 0) {
+        aimTimer = 25 + Math.random() * 35;
+        aimOffset = (Math.random() - 0.5) * PADDLE_W * 0.7;
+      }
+      const maxMove = 6.5 * steps;
+      const target = clamp(predictX() + aimOffset, PADDLE_W / 2, W - PADDLE_W / 2);
+      paddle.x += clamp(target - paddle.x, -maxMove, maxMove);
+    }
+
+    function updateParticles(steps) {
+      for (const p of particles) {
+        p.x += p.vx * steps;
+        p.y += p.vy * steps;
+        p.vy += 0.04 * steps;
+        p.life -= 0.025 * steps;
+      }
+      particles = particles.filter(p => p.life > 0);
+    }
+
+    function update(steps) {
+      if (phase === 'over') {
+        overTimer -= steps;
+        if (overTimer <= 0) reset();
+        return;
+      }
+
+      updatePaddle(steps);
+      updateParticles(steps);
+
+      if (serveTimer > 0) {
+        serveTimer -= steps;
+        ball.x = paddle.x;
+        ball.y = PADDLE_Y - BALL_R - 1;
+        if (serveTimer <= 0) launch();
+        return;
+      }
+
+      const prevX = ball.x;
+      const prevY = ball.y;
+      ball.x += ball.vx * steps;
+      ball.y += ball.vy * steps;
+
+      // Side walls and ceiling
+      if (ball.x - BALL_R < 0) { ball.x = BALL_R; ball.vx = Math.abs(ball.vx); }
+      if (ball.x + BALL_R > W) { ball.x = W - BALL_R; ball.vx = -Math.abs(ball.vx); }
+      if (ball.y - BALL_R < 0) { ball.y = BALL_R; ball.vy = Math.abs(ball.vy); }
+
+      // Paddle: the bounce angle depends on where the ball hits it
+      const onPaddleX = Math.abs(ball.x - paddle.x) <= PADDLE_W / 2 + BALL_R * 0.5;
+      if (ball.vy > 0 && onPaddleX && ball.y + BALL_R >= PADDLE_Y && ball.y - BALL_R < PADDLE_Y + PADDLE_H) {
+        const hitOffset = clamp((ball.x - paddle.x) / (PADDLE_W / 2), -1, 1);
+        const angle = hitOffset * 1.0;
+        ball.vx = speed * Math.sin(angle);
+        ball.vy = -speed * Math.cos(angle);
+        ball.y = PADDLE_Y - BALL_R;
+      }
+
+      // Bricks: break at most one per frame
+      for (const b of bricks) {
+        if (!b.alive) continue;
+        const nx = clamp(ball.x, b.x, b.x + BRICK_W);
+        const ny = clamp(ball.y, b.y, b.y + BRICK_H);
+        const dx = ball.x - nx;
+        const dy = ball.y - ny;
+        if (dx * dx + dy * dy > BALL_R * BALL_R) continue;
+
+        b.alive = false;
+        const wasInColumn = prevX >= b.x && prevX <= b.x + BRICK_W;
+        const wasInRow = prevY >= b.y && prevY <= b.y + BRICK_H;
+        if (!wasInColumn) ball.vx = -ball.vx;
+        if (!wasInRow) ball.vy = -ball.vy;
+
+        speed = Math.min(MAX_SPEED, speed + 0.04);
+        const m = Math.hypot(ball.vx, ball.vy);
+        ball.vx *= speed / m;
+        ball.vy *= speed / m;
+
+        score += 10;
+        burst(ball.x, ball.y, b.hue);
+        break;
+      }
+
+      if (bricks.every(b => !b.alive)) {
+        level++;
+        speed = Math.min(MAX_SPEED, speed + 0.5);
+        buildBricks();
+        serve();
+        return;
+      }
+
+      trail.push({ x: ball.x, y: ball.y });
+      if (trail.length > 14) trail.shift();
+
+      // Ball fell past the paddle
+      if (ball.y - BALL_R > H) {
+        lives--;
+        speed = START_SPEED;
+        if (lives === 0) {
+          phase = 'over';
+          overTimer = 150;
+        } else {
+          serve();
+        }
+      }
+    }
+
+    function reset() {
+      score = 0;
+      lives = 3;
+      level = 1;
+      speed = START_SPEED;
+      phase = 'play';
+      particles = [];
+      buildBricks();
+      serve();
+    }
+
+    function draw() {
+      ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
+
+      const shift = Math.sin(clock * 0.0002);
+      const bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, `hsl(${235 + 25 * shift}, 50%, 13%)`);
+      bg.addColorStop(1, `hsl(${265 + 20 * shift}, 55%, 5%)`);
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      for (const b of bricks) {
+        if (!b.alive) continue;
+        ctx.fillStyle = `hsl(${b.hue}, 80%, 62%)`;
+        ctx.beginPath();
+        ctx.roundRect(b.x, b.y, BRICK_W, BRICK_H, 4);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
+        ctx.fillRect(b.x + 4, b.y + 2, BRICK_W - 8, 2);
+      }
+
+      trail.forEach((p, i) => {
+        const a = (i + 1) / trail.length;
+        ctx.globalAlpha = a * 0.4;
+        ctx.fillStyle = '#e0f2fe';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, BALL_R * a, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+
+      for (const p of particles) {
+        ctx.globalAlpha = p.life;
+        ctx.fillStyle = `hsl(${p.hue}, 90%, 70%)`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2.2 * p.life + 0.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      const px = paddle.x - PADDLE_W / 2;
+      const pg = ctx.createLinearGradient(px, 0, px + PADDLE_W, 0);
+      pg.addColorStop(0, '#7dd3fc');
+      pg.addColorStop(1, '#c4b5fd');
+      ctx.fillStyle = pg;
+      ctx.shadowColor = 'rgba(125, 211, 252, 0.6)';
+      ctx.shadowBlur = 18;
+      ctx.beginPath();
+      ctx.roundRect(px, PADDLE_Y, PADDLE_W, PADDLE_H, PADDLE_H / 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = 'rgba(224, 242, 254, 0.9)';
+      ctx.shadowBlur = 20;
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, BALL_R, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'left';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+      ctx.font = '600 22px system-ui, sans-serif';
+      ctx.fillText(String(score), 20, 46);
+      ctx.font = '500 12px system-ui, sans-serif';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+      ctx.fillText(`Level ${level}`, 20, 66);
+
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#f0abfc';
+      for (let i = 0; i < lives; i++) {
+        ctx.beginPath();
+        ctx.arc(W - 22 - i * 16, 46, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.font = '500 12px system-ui, sans-serif';
+      ctx.fillText('Autoplay · click or space to pause', W / 2, 46);
+
+      if (paused || phase === 'over') {
+        ctx.fillStyle = 'rgba(8, 10, 22, 0.55)';
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '600 28px system-ui, sans-serif';
+        ctx.fillText(phase === 'over' ? 'Game over' : 'Paused', W / 2, H / 2 - 10);
+        ctx.font = '400 14px system-ui, sans-serif';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.fillText(phase === 'over' ? 'Starting over...' : 'Press space to resume', W / 2, H / 2 + 22);
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        paused = !paused;
+      }
+    });
+    canvas.addEventListener('click', () => { paused = !paused; });
+    window.addEventListener('resize', resize);
+
+    let last = performance.now();
+    function frame(now) {
+      const elapsed = Math.min(now - last, 34);
+      last = now;
+      clock = now;
+      if (!paused) update(elapsed / (1000 / 60));
+      draw();
+      requestAnimationFrame(frame);
+    }
+
+    resize();
+    reset();
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>

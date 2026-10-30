@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voxel Autumn Forest</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #f0c08a; }
+  canvas { display: block; }
+  #overlay {
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 10px;
+    background: rgba(30, 16, 6, 0.6); color: #fff6e4;
+    font: 17px/1.4 system-ui, -apple-system, sans-serif;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45); cursor: pointer; user-select: none;
+  }
+  #overlay small { font-size: 13px; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+</head>
+<body>
+<div id="overlay">
+  <strong>Click to start walking through the autumn forest</strong>
+  <small>W A S D or arrow keys to walk, Shift to run, mouse to look, Esc to pause</small>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+
+// ---------- Settings ----------
+const WORLD_SEED = 20261030;
+const CHUNK = 16;          // voxels per chunk side
+const RADIUS = 4;          // chunks kept loaded around the player
+const CELL = 5;            // plants (trees and bushes) are placed one per 5x5 grid cell
+const EYE = 1.6;           // camera height above the ground
+const WALK = 4.2, RUN = 7.5;
+const TRUNK_CLEAR = 0.85;  // how close the player may get to a trunk center
+const LEAF_COUNT = 1600;
+const LEAF_BOX = 20;       // falling leaves wrap around the player inside this square
+const FOG_COLOR = 0xf0c08a;
+
+const PALETTE = {
+  dirt: [0x6b4a2e, 0x5e4128, 0x7a5634],
+  grass: [0x8c9a3c, 0x7d8c31, 0xa3a347, 0x9a8a3e],
+  fallen: [0xd9822b, 0xc25b1e, 0xe2b53f, 0xa33a1c],
+  bark: [0x4a3322, 0x5a3f2a, 0x3d2a1d],
+  canopyThemes: [
+    [0xb5342a, 0xc8402a, 0x9e2b22, 0xd9572c],  // crimson
+    [0xe0662a, 0xf2861f, 0xd9572c, 0xf0a22e],  // orange
+    [0xe8c040, 0xf0a22e, 0xd9b033, 0xf2d26b],  // gold
+  ],
+};
+const LEAF_COLORS = [0xe0662a, 0xc8402a, 0xf0a22e, 0xe8c040, 0xb5342a, 0xd9822b, 0x9a6a2c];
+
+// ---------- Deterministic randomness and terrain ----------
+// The same integer inputs always give the same number in [0, 1), so any chunk can be
+// rebuilt at any time and neighboring chunks always agree at their borders.
+function hash(x, y, z) {
+  let h = Math.imul(x, 0x27d4eb2d) ^ Math.imul(y, 0x165667b1) ^ Math.imul(z ^ WORLD_SEED, 0x9e3779b9);
+  h = Math.imul(h ^ (h >>> 15), 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+const pick = (list, r) => list[Math.floor(r * list.length)];
+const rnd = (a, b) => a + Math.random() * (b - a);
+const smooth = t => t * t * (3 - 2 * t);
+
+function valueNoise(x, z) {
+  const xi = Math.floor(x), zi = Math.floor(z);
+  const u = smooth(x - xi), v = smooth(z - zi);
+  const a = hash(xi, 0, zi), b = hash(xi + 1, 0, zi);
+  const c = hash(xi, 0, zi + 1), d = hash(xi + 1, 0, zi + 1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+
+function fbm(x, z) {
+  let sum = 0, amp = 0.5, norm = 0;
+  for (let i = 0; i < 4; i++) {
+    sum += amp * valueNoise(x, z);
+    norm += amp;
+    amp *= 0.5;
+    x *= 2; z *= 2;
+  }
+  return sum / norm;
+}
+
+// Ground height (top of the voxel column) at a grid position.
+function heightAt(x, z) {
+  const broad = fbm(x * 0.02, z * 0.02);
+  const bumps = fbm(x * 0.15 + 40, z * 0.15 - 17);
+  return Math.max(2, Math.round(6 + (broad - 0.5) * 22 + (bumps - 0.5) * 2.5));
+}
+
+// A tree (kind 0) or a bush (kind 1) for one grid cell, or null if the cell is empty.
+// It depends only on the cell coordinates, so it is never stored and never changes.
+function plantInCell(cx, cz, kind) {
+  const s = kind * 100;
+  if (hash(cx, s + 1, cz) > (kind === 0 ? 0.6 : 0.45)) return null;
+  const x = cx * CELL + Math.floor(hash(cx, s + 2, cz) * CELL);
+  const z = cz * CELL + Math.floor(hash(cx, s + 3, cz) * CELL);
+  const base = heightAt(x, z);
+  const theme = PALETTE.canopyThemes[Math.floor(hash(cx, s + 6, cz) * 3)];
+  if (kind === 0) {
+    const trunk = 4 + Math.floor(hash(cx, s + 4, cz) * 3);  // 4 to 6 voxels tall
+    return { x, z, base, trunk, radius: 2.3 + hash(cx, s + 5, cz) * 0.8, theme };
+  }
+  return { x, z, base, trunk: 0, radius: 1.2 + hash(cx, s + 4, cz) * 0.5, theme };
+}
+
+// Adds the voxels of one plant that land inside the chunk at (ox, oz).
+function emitPlant(p, ox, oz, items) {
+  const inside = (x, z) => x >= ox && x < ox + CHUNK && z >= oz && z < oz + CHUNK;
+  const top = p.base + p.trunk;
+  if (p.trunk > 0 && inside(p.x, p.z)) {
+    for (let y = p.base; y < top; y++) {
+      items.push({ x: p.x, y, z: p.z, sy: 1, hex: pick(PALETTE.bark, hash(p.x, y, p.z + 5)) });
+    }
+  }
+  const R = Math.ceil(p.radius), r2 = p.radius * p.radius;
+  const minY = Math.max(p.base, top - 1);
+  for (let dx = -R; dx <= R; dx++) {
+    for (let dy = -R; dy <= R; dy++) {
+      for (let dz = -R; dz <= R; dz++) {
+        const x = p.x + dx, y = top + 1 + dy, z = p.z + dz;
+        if (y < minY || (dx === 0 && dz === 0 && y < top) || !inside(x, z)) continue;
+        // Ragged edge: each voxel gets its own cut-off radius.
+        if (dx * dx + dy * dy + dz * dz > r2 * (0.7 + 0.5 * hash(x, y, z))) continue;
+        items.push({ x, y, z, sy: 1, hex: pick(p.theme, hash(x, y + 977, z)) });
+      }
+    }
+  }
+}
+
+// ---------- Chunk building ----------
+const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+const voxelMat = new THREE.MeshLambertMaterial();
+
+// Builds one chunk as a single InstancedMesh. Every voxel is one box, stretched
+// to its height where needed (ground columns and trunks are stretched for speed).
+function buildChunk(cx, cz) {
+  const ox = cx * CHUNK, oz = cz * CHUNK;
+  const items = [];
+
+  // Ground: a dirt column with a grass cap (sometimes covered in fallen leaves).
+  for (let lx = 0; lx < CHUNK; lx++) {
+    for (let lz = 0; lz < CHUNK; lz++) {
+      const x = ox + lx, z = oz + lz;
+      const h = heightAt(x, z);
+      items.push({ x, y: 0, z, sy: h - 1, hex: pick(PALETTE.dirt, hash(x, 7, z)) });
+      const fallen = hash(x, 8, z) < 0.18;
+      items.push({
+        x, y: h - 1, z, sy: 1,
+        hex: fallen ? pick(PALETTE.fallen, hash(x, 9, z)) : pick(PALETTE.grass, hash(x, 10, z)),
+      });
+    }
+  }
+
+  // Trees and bushes that reach into this chunk (plants can overhang the chunk edge).
+  const reach = 6;
+  const i0 = Math.floor((ox - reach) / CELL), i1 = Math.floor((ox + CHUNK - 1 + reach) / CELL);
+  const j0 = Math.floor((oz - reach) / CELL), j1 = Math.floor((oz + CHUNK - 1 + reach) / CELL);
+  for (let i = i0; i <= i1; i++) {
+    for (let j = j0; j <= j1; j++) {
+      for (let kind = 0; kind < 2; kind++) {
+        const p = plantInCell(i, j, kind);
+        if (p) emitPlant(p, ox, oz, items);
+      }
+    }
+  }
+
+  const mesh = new THREE.InstancedMesh(boxGeo, voxelMat, items.length);
+  const pos = new THREE.Vector3(), scale = new THREE.Vector3();
+  const quat = new THREE.Quaternion(), m = new THREE.Matrix4(), col = new THREE.Color();
+  items.forEach((it, i) => {
+    pos.set(it.x + 0.5, it.y + it.sy / 2, it.z + 0.5);
+    scale.set(1, it.sy, 1);
+    mesh.setMatrixAt(i, m.compose(pos, quat, scale));
+    // Small brightness change per voxel so the blocks do not all look identical.
+    mesh.setColorAt(i, col.setHex(it.hex).multiplyScalar(0.92 + 0.16 * hash(it.x, it.y, it.z + 99)));
+  });
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+// ---------- Renderer, scene, lights ----------
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(FOG_COLOR, 12, 64);   // distance haze hides where chunks load
+
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 400);
+camera.rotation.order = 'YXZ';                  // turn left/right first, then look up/down
+
+// Sky: a big sphere with a vertex-colored gradient from the warm horizon to blue zenith.
+const SKY_RADIUS = 350;
+const skyGeo = new THREE.SphereGeometry(SKY_RADIUS, 32, 16);
+const skyColors = [];
+const horizonColor = new THREE.Color(FOG_COLOR), zenithColor = new THREE.Color(0x5f8fbf);
+const tint = new THREE.Color();
+const skyPos = skyGeo.attributes.position;
+for (let i = 0; i < skyPos.count; i++) {
+  const t = Math.min(Math.max(skyPos.getY(i) / SKY_RADIUS, 0), 1);
+  tint.copy(horizonColor).lerp(zenithColor, Math.pow(t, 0.5));
+  skyColors.push(tint.r, tint.g, tint.b);
+}
+skyGeo.setAttribute('color', new THREE.Float32BufferAttribute(skyColors, 3));
+const sky = new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({
+  vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false,
+}));
+sky.frustumCulled = false;
+sky.renderOrder = -1;
+scene.add(sky);
+
+// Low autumn sun with soft shadows. The light follows the player.
+const hemi = new THREE.HemisphereLight(0xffe6bf, 0x5a3d22, 1.2);
+const sun = new THREE.DirectionalLight(0xffd7a0, 2.0);
+const SUN_DIR = new THREE.Vector3(-0.6, 0.45, 0.5).normalize();
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 40, bottom: -40, near: 1, far: 160 });
+sun.shadow.camera.updateProjectionMatrix();
+sun.shadow.bias = -0.0005;
+sun.shadow.normalBias = 0.03;
+scene.add(hemi, sun, sun.target);
+
+// ---------- Player ----------
+const player = { x: 0.5, z: 0.5, y: 0, yaw: 0, pitch: -0.1, stride: 0, bob: 0 };
+player.y = heightAt(0, 0) + EYE;
+const keys = {};
+
+// Pushes the player out of tree trunks. A trunk is a 1x1 column at each tree's base.
+function resolveTrees(px, pz) {
+  const cx = Math.floor(px / CELL), cz = Math.floor(pz / CELL);
+  for (let i = cx - 1; i <= cx + 1; i++) {
+    for (let j = cz - 1; j <= cz + 1; j++) {
+      const t = plantInCell(i, j, 0);
+      if (!t) continue;
+      const dx = px - (t.x + 0.5), dz = pz - (t.z + 0.5);
+      const d = Math.hypot(dx, dz);
+      if (d > 0 && d < TRUNK_CLEAR) {
+        px = t.x + 0.5 + (dx / d) * TRUNK_CLEAR;
+        pz = t.z + 0.5 + (dz / d) * TRUNK_CLEAR;
+      }
+    }
+  }
+  return [px, pz];
+}
+
+function updatePlayer(dt) {
+  const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw);  // forward
+  const rx = Math.cos(player.yaw), rz = -Math.sin(player.yaw);   // right
+  let mx = 0, mz = 0;
+  if (keys.KeyW || keys.ArrowUp) { mx += fx; mz += fz; }
+  if (keys.KeyS || keys.ArrowDown) { mx -= fx; mz -= fz; }
+  if (keys.KeyD || keys.ArrowRight) { mx += rx; mz += rz; }
+  if (keys.KeyA || keys.ArrowLeft) { mx -= rx; mz -= rz; }
+  const len = Math.hypot(mx, mz);
+  const moving = len > 0;
+  if (moving) {
+    const step = ((keys.ShiftLeft || keys.ShiftRight) ? RUN : WALK) * dt / len;
+    [player.x, player.z] = resolveTrees(player.x + mx * step, player.z + mz * step);
+    player.stride += dt * 8;
+  }
+  player.bob = moving ? Math.sin(player.stride) * 0.04 : 0;
+  // Follow the ground smoothly, so stepping up a block is not a sudden jump.
+  const ground = heightAt(Math.floor(player.x), Math.floor(player.z)) + EYE;
+  player.y += (ground - player.y) * Math.min(1, dt * 12);
+}
+
+addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code.startsWith('Arrow')) e.preventDefault();
+});
+addEventListener('keyup', e => { keys[e.code] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+// ---------- Mouse look (pointer lock) ----------
+const canvas = renderer.domElement;
+const overlay = document.getElementById('overlay');
+overlay.addEventListener('click', () => {
+  const req = canvas.requestPointerLock();
+  if (req && req.catch) req.catch(() => {});
+});
+document.addEventListener('pointerlockchange', () => {
+  overlay.style.display = document.pointerLockElement === canvas ? 'none' : 'flex';
+});
+document.addEventListener('mousemove', e => {
+  if (document.pointerLockElement !== canvas) return;
+  player.yaw -= e.movementX * 0.0022;
+  player.pitch = Math.max(-1.4, Math.min(1.4, player.pitch - e.movementY * 0.0022));
+});
+
+// ---------- Falling leaves ----------
+// One leaf is a small 4x4 pixel shape built from flat squares.
+function makeLeafGeometry() {
+  const mask = ['.XX.', 'XXXX', 'XXXX', '.XX.'];
+  const px = 0.06;
+  const pos = [], nor = [], idx = [];
+  let n = 0;
+  mask.forEach((row, r) => {
+    for (let c = 0; c < row.length; c++) {
+      if (row[c] !== 'X') continue;
+      const x0 = (c - row.length / 2) * px, y1 = (mask.length / 2 - r) * px;
+      pos.push(x0, y1 - px, 0, x0 + px, y1 - px, 0, x0 + px, y1, 0, x0, y1, 0);
+      nor.push(0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1);
+      idx.push(n, n + 1, n + 2, n, n + 2, n + 3);
+      n += 4;
+    }
+  });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.setIndex(idx);
+  return g;
+}
+
+const leafMat = new THREE.MeshLambertMaterial({ side: THREE.DoubleSide });
+const leaves = new THREE.InstancedMesh(makeLeafGeometry(), leafMat, LEAF_COUNT);
+leaves.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+leaves.frustumCulled = false;
+scene.add(leaves);
+
+const leafState = [];
+const dummy = new THREE.Object3D();
+const leafColor = new THREE.Color();
+
+// Puts a leaf back in the air around the player. "anywhere" spreads leaves over the
+// full height at startup; otherwise they come back from the canopy level.
+function respawnLeaf(s, anywhere) {
+  s.x = player.x + rnd(-LEAF_BOX, LEAF_BOX);
+  s.z = player.z + rnd(-LEAF_BOX, LEAF_BOX);
+  s.y = anywhere ? rnd(0, 20) : rnd(12, 20);
+}
+
+for (let i = 0; i < LEAF_COUNT; i++) {
+  const s = {
+    x: 0, y: 0, z: 0,
+    fall: rnd(0.8, 1.4),
+    freq: rnd(0.5, 1.4),
+    phase: rnd(0, Math.PI * 2),
+    scale: rnd(0.8, 1.5),
+    rot: [rnd(0, Math.PI * 2), rnd(0, Math.PI * 2), rnd(0, Math.PI * 2)],
+    spin: [rnd(-2, 2), rnd(-2, 2), rnd(-2, 2)],
+  };
+  respawnLeaf(s, true);
+  leaves.setColorAt(i, leafColor.setHex(pick(LEAF_COLORS, Math.random())));
+  leafState.push(s);
+}
+
+const wrap = (v, half) => ((v + half) % (2 * half) + 2 * half) % (2 * half) - half;
+
+function updateLeaves(dt, t) {
+  for (let i = 0; i < LEAF_COUNT; i++) {
+    const s = leafState[i];
+    s.y -= s.fall * dt;
+    s.x += (0.6 + Math.sin(t * s.freq + s.phase) * 1.1) * dt;
+    s.z += (0.2 + Math.cos(t * s.freq * 0.8 + s.phase) * 0.7) * dt;
+    // Leaves stay in a square around the player: leaving one side re-enters the other.
+    s.x = player.x + wrap(s.x - player.x, LEAF_BOX);
+    s.z = player.z + wrap(s.z - player.z, LEAF_BOX);
+    // A leaf that touches the ground starts over up in the canopy.
+    if (s.y < heightAt(Math.floor(s.x), Math.floor(s.z)) + 0.3) respawnLeaf(s, false);
+    for (let k = 0; k < 3; k++) s.rot[k] += s.spin[k] * dt;
+    dummy.position.set(s.x, s.y, s.z);
+    dummy.rotation.set(s.rot[0], s.rot[1], s.rot[2]);
+    dummy.scale.setScalar(s.scale);
+    dummy.updateMatrix();
+    leaves.setMatrixAt(i, dummy.matrix);
+  }
+  leaves.instanceMatrix.needsUpdate = true;
+}
+
+// ---------- Infinite world streaming ----------
+const chunks = new Map();   // "cx,cz" -> InstancedMesh
+const keyOf = (cx, cz) => cx + ',' + cz;
+let center = null;          // chunk the player was in when the loaded ring was planned
+let queue = [];             // chunks still waiting to be built, nearest first
+
+function streamChunks(budgetMs) {
+  const pcx = Math.floor(player.x / CHUNK), pcz = Math.floor(player.z / CHUNK);
+  if (!center || center.x !== pcx || center.z !== pcz) {
+    center = { x: pcx, z: pcz };
+    const wanted = [];
+    for (let dx = -RADIUS; dx <= RADIUS; dx++) {
+      for (let dz = -RADIUS; dz <= RADIUS; dz++) {
+        const d2 = dx * dx + dz * dz;
+        if (d2 <= RADIUS * RADIUS + 1) wanted.push({ cx: pcx + dx, cz: pcz + dz, d2 });
+      }
+    }
+    wanted.sort((a, b) => a.d2 - b.d2);
+    const keep = new Set(wanted.map(w => keyOf(w.cx, w.cz)));
+    // Free chunks that are now far behind the player.
+    for (const [k, mesh] of chunks) {
+      if (keep.has(k)) continue;
+      scene.remove(mesh);
+      mesh.dispose();
+      chunks.delete(k);
+    }
+    queue = wanted.filter(w => !chunks.has(keyOf(w.cx, w.cz)));
+  }
+  // Build new chunks until the time budget for this frame runs out.
+  const start = performance.now();
+  while (queue.length && performance.now() - start < budgetMs) {
+    const { cx, cz } = queue.shift();
+    const mesh = buildChunk(cx, cz);
+    scene.add(mesh);
+    chunks.set(keyOf(cx, cz), mesh);
+  }
+}
+
+// ---------- Main loop ----------
+streamChunks(Infinity);     // build the first ring of chunks before the first frame
+const clock = new THREE.Clock();
+let elapsed = 0;
+
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  elapsed += dt;
+
+  updatePlayer(dt);
+  streamChunks(6);
+  updateLeaves(dt, elapsed);
+
+  camera.position.set(player.x, player.y + player.bob, player.z);
+  camera.rotation.set(player.pitch, player.yaw, 0);
+
+  sky.position.copy(camera.position);
+  sun.target.position.set(player.x, player.y - EYE, player.z);
+  sun.position.copy(sun.target.position).addScaledVector(SUN_DIR, 70);
+
+  renderer.render(scene, camera);
+});
+
+addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>

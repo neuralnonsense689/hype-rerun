@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2025 Gemini 3 demos, rerun on Haiku 5.5 and GPT-6.1 Terra</title>
+<meta name="description" content="Four demos from Gemini 3's launch day in November 2025, rerun with the same prompts on Claude Haiku 5.5 and GPT-6.1 Terra in October 2026.">
+<link rel="icon" href="../goldfish.png">
+<style>
+  :root { --bg: #0b0d10; --fg: #e8eaed; --dim: #9aa0a6; --line: #262a31; --accent: #f08a3e; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.55 -apple-system, "Helvetica Neue", Arial, sans-serif; }
+  main { max-width: 960px; margin: 0 auto; padding: 32px 16px 64px; }
+  a { color: var(--accent); }
+  .back { font-size: 15px; }
+  h1 { font-size: 34px; line-height: 1.2; margin: 18px 0 8px; }
+  h2 { font-size: 24px; margin: 56px 0 6px; }
+  p { margin: 8px 0; }
+  code { overflow-wrap: anywhere; }
+  .dim { color: var(--dim); }
+  video, img { width: 100%; border-radius: 10px; background: #000; display: block; margin: 16px 0 10px; }
+  .runs { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 15px; }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 15px; margin-top: 12px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--dim); font-weight: 600; }
+  td.num { font-variant-numeric: tabular-nums; }
+  .m::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 7px; background: var(--c); }
+  .haiku { --c: #f08a3e; }
+  .terra { --c: #5ec4b6; }
+  tr.terra td { background: rgba(94, 196, 182, 0.16); }
+  ul { padding-left: 20px; }
+  footer { margin-top: 56px; font-size: 14px; color: var(--dim); }
+</style>
+</head>
+<body>
+<main>
+<a class="back" href="../">hype rerun</a>
+<h1>2025 Gemini 3 demos, rerun on Haiku 5.5 and GPT-6.1 Terra</h1>
+<p class="dim">October 2026. Four things people showed off on Gemini 3's launch day, November 18, 2025, given again with the same prompts to two of today's cheap models.</p>
+
+<h2>An endless voxel forest</h2>
+<video src="clips/forest-compare.mp4" autoplay muted loop playsinline controls></video>
+<p>A Google DeepMind researcher posted this on launch day from a single line: "three js infinitely procedurally generated voxel art scene of walking through the forest with falling autumn leaves". The clip shows Gemini 3 Pro on the left, then Haiku 5.5 on high, then Terra on high. Haiku's forest is dense and dark, and walking forward soon runs into a trunk. Terra's walks itself down a path. It also added a title and tagline nobody asked for.</p>
+<div class="runs">
+  <a href="haiku/voxel-forest-high/">Haiku high, live</a>
+  <a href="haiku/voxel-forest-xhigh/">Haiku xhigh, live</a>
+  <a href="terra/voxel-forest-high/">Terra high, live</a>
+  <a href="https://x.com/YiTayML/status/1990817918784000420">Original post by Yi Tay</a>
+</div>
+
+<h2>A game that plays itself</h2>
+<video src="clips/selfplaying-compare.mp4" autoplay muted loop playsinline controls></video>
+<p>DeepMind's co-founder asked for "a beautifully simple game that plays itself" and got Autolife, a particle ecosystem. The three models read the prompt differently. Haiku made classic games on autoplay: Snake on high, Breakout on xhigh (shown). Terra made four little characters collecting lights, with a scoreboard.</p>
+<div class="runs">
+  <a href="haiku/selfplaying-high/">Haiku high, live</a>
+  <a href="haiku/selfplaying-xhigh/">Haiku xhigh, live</a>
+  <a href="terra/selfplaying-high/">Terra high, live</a>
+  <a href="https://x.com/ShaneLegg/status/1990846672608370840">Original post by Shane Legg</a>
+</div>
+
+<h2>A voxel scene from a photo</h2>
+<video src="clips/image-voxel.mp4" autoplay muted loop playsinline controls></video>
+<p>The inventor of GANs gave Gemini 3 a picture and one line: "Code a beautiful voxel art scene inspired by this image." I cropped the input picture from his video and gave it to the new models with the same line. The clip shows Haiku on xhigh. On high, Haiku's scene has a stray green wall behind it and one console error.</p>
+<p>Terra's page never gets past its loading screen. It imports a Three.js add-on in a way no browser can resolve, and since it had no browser, it finished without finding out. It reported that its syntax check passed. The result is left as it came out.</p>
+<div class="runs">
+  <a href="haiku/image-voxel-high/">Haiku high, live</a>
+  <a href="haiku/image-voxel-xhigh/">Haiku xhigh, live</a>
+  <a href="terra/image-voxel-high/">Terra high, stuck on loading</a>
+  <a href="https://x.com/goodfellow_ian/status/1990839056331337797">Original post by Ian Goodfellow, with the picture</a>
+</div>
+
+<h2>A pelican on a bicycle</h2>
+<img src="clips/pelican.png" alt="Pelican on a bicycle. Left: Gemini 3 Pro on a plain white background. Right: Haiku 5.5 xhigh with a beach, sea and road behind it.">
+<img src="clips/pelican-terra.png" alt="Pelican on a bicycle. Left: Gemini 3 Pro on a plain white background. Right: GPT-6.1 Terra with a detailed bird and bicycle on a pale background.">
+<p>From a well-known developer's launch-day review, which reported Gemini 3 Pro on high as its best result. The prompt asks for spokes, a correct frame, a large pouch, feathers, pedaling and breeding plumage.</p>
+<div class="runs">
+  <a href="haiku/pelican-high/">Haiku high</a>
+  <a href="haiku/pelican-xhigh/">Haiku xhigh</a>
+  <a href="terra/pelican-high/">Terra high</a>
+  <a href="https://simonwillison.net/2025/Nov/18/gemini-3/">Original review by Simon Willison, with the prompt</a>
+</div>
+
+<h2 id="runs">Runs</h2>
+<div class="scroll"><table>
+  <tr><th>Demo</th><th>Model</th><th>Effort</th><th>Cost</th><th>Time</th></tr>
+  <tr><td>Forest</td><td><span class="m haiku">Haiku 5.5</span></td><td>high</td><td class="num">$0.05</td><td class="num">4 min 27 s</td></tr>
+  <tr><td>Forest</td><td><span class="m haiku">Haiku 5.5</span></td><td>xhigh</td><td class="num">$0.06</td><td class="num">5 min 34 s</td></tr>
+  <tr class="terra"><td>Forest</td><td><span class="m terra">GPT&#8209;6.1 Terra</span></td><td>high</td><td class="num">$0.05</td><td class="num">69 s</td></tr>
+  <tr><td>Self-playing game</td><td><span class="m haiku">Haiku 5.5</span></td><td>high</td><td class="num">$0.01</td><td class="num">1 min 18 s</td></tr>
+  <tr><td>Self-playing game</td><td><span class="m haiku">Haiku 5.5</span></td><td>xhigh</td><td class="num">$0.02</td><td class="num">2 min 17 s</td></tr>
+  <tr class="terra"><td>Self-playing game</td><td><span class="m terra">GPT&#8209;6.1 Terra</span></td><td>high</td><td class="num">$0.04</td><td class="num">57 s</td></tr>
+  <tr><td>Voxel scene from a photo</td><td><span class="m haiku">Haiku 5.5</span></td><td>high</td><td class="num">$0.05</td><td class="num">4 min 45 s</td></tr>
+  <tr><td>Voxel scene from a photo</td><td><span class="m haiku">Haiku 5.5</span></td><td>xhigh</td><td class="num">$0.06</td><td class="num">5 min 59 s</td></tr>
+  <tr class="terra"><td>Voxel scene from a photo</td><td><span class="m terra">GPT&#8209;6.1 Terra</span></td><td>high</td><td class="num">$0.05</td><td class="num">73 s, did not load</td></tr>
+  <tr><td>Pelican</td><td><span class="m haiku">Haiku 5.5</span></td><td>high</td><td class="num">$0.02</td><td class="num">2 min 14 s</td></tr>
+  <tr><td>Pelican</td><td><span class="m haiku">Haiku 5.5</span></td><td>xhigh</td><td class="num">$0.05</td><td class="num">4 min 53 s</td></tr>
+  <tr class="terra"><td>Pelican</td><td><span class="m terra">GPT&#8209;6.1 Terra</span></td><td>high</td><td class="num">$0.02</td><td class="num">49 s</td></tr>
+  <tr><td colspan="3"><strong><span class="m haiku">Haiku 5.5</span> total (8 runs)</strong></td><td class="num"><strong>$0.31</strong></td><td></td></tr>
+  <tr class="terra"><td colspan="3"><strong><span class="m terra">GPT&#8209;6.1 Terra</span> total (4 runs)</strong></td><td class="num"><strong>$0.17</strong></td><td></td></tr>
+</table></div>
+
+<h2>How this was run</h2>
+<ul>
+  <li>One run per demo and effort level, no retries, no follow-up prompts, and the results are shown as they came out.</li>
+  <li>Prompts are the originals, word for word. I added one line saying where to save the file, and for the photo demo, which file the picture is.</li>
+  <li>Neither model had a browser or web search, so neither saw its page render.</li>
+  <li>Haiku ran in Claude Code (<code>claude-haiku-5-5</code>) and could only read and edit files. Terra ran in Codex CLI (<code>gpt-6.1-terra</code>), which always gives the model a shell, with network access off. Terra used it to write files and check syntax.</li>
+  <li>Costs are the tokens each run used at API list prices. I ran them on subscriptions, so nothing was charged. The original posts don't give Gemini's cost, so there's no price comparison here.</li>
+  <li>The original clips are from public posts and show whatever their authors chose to show. This is a rerun of public demos, not a benchmark.</li>
+  <li>For the videos, headless Chrome can't lock the mouse, so the recording tool fakes that part where a page needs it. The models' code is unchanged.</li>
+</ul>
+
+<footer>
+  <p>Originals belong to their authors: Yi Tay (forest), Shane Legg (self-playing game), Ian Goodfellow (voxel scene and input picture), Simon Willison (pelican). The comparison clips show their results with credit.</p>
+  <p>By <a href="https://x.com/neuralnonsense_">@neuralnonsense_</a></p>
+</footer>
+</main>
+</body>
+</html>

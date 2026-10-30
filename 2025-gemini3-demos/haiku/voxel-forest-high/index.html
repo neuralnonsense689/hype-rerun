@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Autumn Voxel Forest</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #f0b987; font-family: system-ui, -apple-system, sans-serif; }
+  canvas { display: block; }
+  #overlay {
+    position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; background: rgba(40, 20, 10, 0.6); cursor: pointer; user-select: none;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); text-align: center;
+  }
+  #overlay.hidden { display: none; }
+  #overlay h1 { font-size: 2.4rem; margin: 0 0 0.8rem; letter-spacing: 0.04em; }
+  #overlay p { margin: 0.25rem 0; font-size: 1rem; }
+  #overlay .start { margin-top: 1.4rem; padding: 0.6rem 1.4rem; border: 2px solid #fff; border-radius: 6px; font-size: 1.05rem; background: rgba(0, 0, 0, 0.2); }
+  #hud { position: fixed; left: 12px; top: 10px; padding: 6px 10px; border-radius: 6px; color: #fff; background: rgba(30, 15, 8, 0.6); font: 13px/1.5 monospace; white-space: pre; pointer-events: none; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+</head>
+<body>
+<div id="overlay">
+  <h1>Autumn Voxel Forest</h1>
+  <p>W A S D or arrow keys to walk. Hold Shift to run. Space to jump.</p>
+  <p>Move the mouse to look around. Press Esc to pause.</p>
+  <div class="start">Click to enter the forest</div>
+</div>
+<div id="hud"></div>
+
+<script type="module">
+import * as THREE from 'three';
+
+// ---------- world settings ----------
+const CS = 16;              // chunk width and depth, in voxels
+const DY = 40;              // world height, in voxels
+const M = 1;                // margin around each chunk so edge faces can see their neighbours
+const DX = CS + 2 * M;
+const DZ = CS + 2 * M;
+const RENDER_DIST = 5;      // chunks kept loaded around the player, in each direction
+const TREE_MARGIN = 5;      // how far outside a chunk a tree origin can sit and still reach into it
+const CHUNKS_PER_FRAME = 2;
+const LEAF_COUNT = 700;
+const LEAF_RADIUS = 22;
+const SEED = 1337;
+const PLAYER_R = 0.3;
+const PLAYER_H = 1.7;
+const EYE = 1.6;
+const GRAVITY = 26;
+const JUMP_V = 9;
+const AO_LIGHT = [1.0, 0.78, 0.6, 0.46];
+const LIN = Array.from({ length: 256 }, (_, i) => Math.pow(i / 255, 2.2));
+
+const LEAF_COLORS = [0xd9480f, 0xe8590c, 0xf08c00, 0xc92a2a, 0xfab005, 0xb5452b, 0xe67700];
+const GRASS_COLORS = [0x8f9a3b, 0xa3a03f, 0x7f8c36, 0xb0963a];
+const LITTER_COLORS = [0xc2561b, 0xd9872b, 0x9e3d1c, 0xe0a030];
+const DIRT_COLORS = [0x6e4a2f, 0x5c3d26];
+const STONE_COLORS = [0x7d7a72, 0x6a675f];
+const WOOD_COLORS = [0x5a3b22, 0x4a3019];
+
+// Each face: outward direction, and its 4 corners (0 or 1 per axis) in counter-clockwise order seen from outside
+const FACES = [
+  { dir: [1, 0, 0], quad: [[1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 1]] },
+  { dir: [-1, 0, 0], quad: [[0, 0, 1], [0, 1, 1], [0, 1, 0], [0, 0, 0]] },
+  { dir: [0, 1, 0], quad: [[0, 1, 1], [1, 1, 1], [1, 1, 0], [0, 1, 0]] },
+  { dir: [0, -1, 0], quad: [[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]] },
+  { dir: [0, 0, 1], quad: [[0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]] },
+  { dir: [0, 0, -1], quad: [[1, 0, 0], [0, 0, 0], [0, 1, 0], [1, 1, 0]] },
+];
+
+// ---------- deterministic randomness and noise ----------
+// Same input always gives the same number, so every chunk agrees with its neighbours.
+function hash(x, y, z, s) {
+  let h = Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263) ^ Math.imul(z | 0, 1274126177) ^ Math.imul(s | 0, 2246822519);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+
+function valueNoise(x, z, s) {
+  const xi = Math.floor(x), zi = Math.floor(z);
+  const xf = x - xi, zf = z - zi;
+  const u = xf * xf * (3 - 2 * xf), v = zf * zf * (3 - 2 * zf);
+  const a = hash(xi, 0, zi, s), b = hash(xi + 1, 0, zi, s);
+  const c = hash(xi, 0, zi + 1, s), d = hash(xi + 1, 0, zi + 1, s);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+
+function fbm(x, z, s) {
+  return (valueNoise(x, z, s) * 0.5 + valueNoise(x * 2.03, z * 2.03, s + 1) * 0.25 + valueNoise(x * 4.1, z * 4.1, s + 2) * 0.125) / 0.875;
+}
+
+const choose = (list, r) => list[Math.min(list.length - 1, Math.floor(r * list.length))];
+
+// ---------- terrain and trees ----------
+function terrainHeight(x, z) {
+  const hills = fbm(x * 0.03, z * 0.03, SEED);
+  const bumps = valueNoise(x * 0.3, z * 0.3, SEED + 9) - 0.5;
+  return Math.max(1, Math.min(18, Math.floor(4 + hills * 11 + bumps * 1.5)));
+}
+
+function treeChance(x, z) {
+  // dense groves in some places, open meadows in others
+  return 0.05 + valueNoise(x * 0.04, z * 0.04, SEED + 5) * 0.14;
+}
+
+// Returns the tree rooted at this ground cell, or null. Only the root is stored here; the leaves are built later.
+function treeAt(ox, oz) {
+  const base = terrainHeight(ox, oz);
+  if (base < 3) return null;
+  if (hash(ox, 0, oz, 11) > treeChance(ox, oz)) return null;
+  return {
+    ox, oz, base,
+    trunkH: 5 + Math.floor(hash(ox, 0, oz, 12) * 4),
+    radius: 2.2 + hash(ox, 0, oz, 13) * 1.2,
+    leaf: Math.floor(hash(ox, 0, oz, 14) * LEAF_COLORS.length),
+    seed: Math.floor(hash(ox, 0, oz, 15) * 1000),
+  };
+}
+
+// Colours are stored as packed RGB with bit 24 set, so 0 can mean air.
+function pack(hex, k) {
+  const r = Math.min(255, ((hex >> 16) & 255) * k);
+  const g = Math.min(255, ((hex >> 8) & 255) * k);
+  const b = Math.min(255, (hex & 255) * k);
+  return 0x1000000 | (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(b);
+}
+
+function groundColor(x, y, z, h) {
+  const pick = hash(x, y, z, 23);
+  const shade = 0.9 + hash(x, y, z, 24) * 0.2;
+  if (y === h) {
+    const litter = hash(x, y, z, 25) < 0.12; // a few fallen leaves on the grass
+    return pack(litter ? choose(LITTER_COLORS, pick) : choose(GRASS_COLORS, pick), shade);
+  }
+  if (y >= h - 3) return pack(choose(DIRT_COLORS, pick), shade);
+  return pack(choose(STONE_COLORS, pick), shade);
+}
+
+function cellIndex(lx, y, lz) {
+  return (lx + M) + DX * (y + DY * (lz + M));
+}
+
+// Writes one tree's trunk and leaves into a chunk's voxel array (only the part that falls inside it).
+function placeTree(t, data, cox, coz) {
+  const top = t.base + t.trunkH;
+  const put = (x, y, z, hex, shade, isTrunk) => {
+    const lx = x - cox, lz = z - coz;
+    if (lx < -M || lx >= CS + M || lz < -M || lz >= CS + M || y < 0 || y >= DY) return;
+    const i = cellIndex(lx, y, lz);
+    if (isTrunk || data[i] === 0) data[i] = pack(hex, shade); // leaves never sink into the ground
+  };
+  for (let y = t.base + 1; y <= top; y++) {
+    put(t.ox, y, t.oz, choose(WOOD_COLORS, hash(t.ox, y, t.oz, 31)), 0.9 + hash(t.ox, y, t.oz, 32) * 0.2, true);
+  }
+  const R = Math.ceil(t.radius);
+  const r2 = t.radius * t.radius;
+  for (let dy = -R; dy <= R; dy++) {
+    for (let dx = -R; dx <= R; dx++) {
+      for (let dz = -R; dz <= R; dz++) {
+        const x = t.ox + dx, y = top + dy, z = t.oz + dz;
+        const d = dx * dx + dz * dz + dy * dy * 1.3;
+        if (d > r2 + (hash(x, y, z, t.seed) - 0.5) * 2) continue; // rounded, slightly lumpy crown
+        if (hash(x, y, z, t.seed + 1) < 0.1) continue;            // a few holes for variety
+        const hex = hash(x, y, z, t.seed + 2) < 0.7 ? LEAF_COLORS[t.leaf] : LEAF_COLORS[(t.leaf + 1) % LEAF_COLORS.length];
+        put(x, y, z, hex, 0.9 + hash(x, y, z, t.seed + 3) * 0.2, false);
+      }
+    }
+  }
+}
+
+// ---------- chunk meshing ----------
+function buildChunk(cx, cz) {
+  const ox = cx * CS, oz = cz * CS;
+  const data = new Uint32Array(DX * DY * DZ);
+  for (let lz = -M; lz < CS + M; lz++) {
+    for (let lx = -M; lx < CS + M; lx++) {
+      const x = ox + lx, z = oz + lz;
+      const h = terrainHeight(x, z);
+      for (let y = 0; y <= h; y++) data[cellIndex(lx, y, lz)] = groundColor(x, y, z, h);
+    }
+  }
+  for (let tz = oz - TREE_MARGIN; tz < oz + CS + TREE_MARGIN; tz++) {
+    for (let tx = ox - TREE_MARGIN; tx < ox + CS + TREE_MARGIN; tx++) {
+      const t = treeAt(tx, tz);
+      if (t) placeTree(t, data, ox, oz);
+    }
+  }
+  return meshFromData(data, ox, oz);
+}
+
+const terrainMaterial = new THREE.MeshLambertMaterial({ vertexColors: true });
+
+function meshFromData(data, ox, oz) {
+  const pos = [], nor = [], col = [], index = [];
+  let vertCount = 0;
+  const occ = (lx, y, lz, o) => {
+    const ny = y + o[1];
+    if (ny < 0 || ny >= DY) return 0;
+    return data[cellIndex(lx + o[0], ny, lz + o[2])] ? 1 : 0;
+  };
+
+  for (let lz = 0; lz < CS; lz++) {
+    for (let y = 0; y < DY; y++) {
+      for (let lx = 0; lx < CS; lx++) {
+        const c = data[cellIndex(lx, y, lz)];
+        if (!c) continue;
+        for (const face of FACES) {
+          const [dx, dy, dz] = face.dir;
+          const ny = y + dy;
+          if (ny < 0) continue;
+          if (ny < DY && data[cellIndex(lx + dx, ny, lz + dz)]) continue; // hidden face
+
+          // Ambient occlusion: check the two side cells and the corner cell next to each vertex
+          const axis = dx !== 0 ? 0 : dy !== 0 ? 1 : 2;
+          const bA = (axis + 1) % 3, cA = (axis + 2) % 3;
+          const ao = [0, 0, 0, 0];
+          for (let i = 0; i < 4; i++) {
+            const q = face.quad[i];
+            const sb = q[bA] * 2 - 1, sc = q[cA] * 2 - 1;
+            const v1 = [dx, dy, dz]; v1[bA] += sb;
+            const v2 = [dx, dy, dz]; v2[cA] += sc;
+            const v3 = [dx, dy, dz]; v3[bA] += sb; v3[cA] += sc;
+            const s1 = occ(lx, y, lz, v1), s2 = occ(lx, y, lz, v2), c3 = occ(lx, y, lz, v3);
+            ao[i] = s1 && s2 ? 3 : s1 + s2 + c3;
+          }
+
+          const r = LIN[(c >> 16) & 255], g = LIN[(c >> 8) & 255], b = LIN[c & 255];
+          const base = vertCount;
+          for (let i = 0; i < 4; i++) {
+            const q = face.quad[i];
+            pos.push(ox + lx + q[0], y + q[1], oz + lz + q[2]);
+            nor.push(dx, dy, dz);
+            const k = AO_LIGHT[ao[i]];
+            col.push(r * k, g * k, b * k);
+          }
+          // Pick the diagonal that keeps the darkest corner from smearing across the quad
+          if (ao[0] + ao[2] > ao[1] + ao[3]) index.push(base, base + 1, base + 3, base + 1, base + 2, base + 3);
+          else index.push(base, base + 1, base + 2, base, base + 2, base + 3);
+          vertCount += 4;
+        }
+      }
+    }
+  }
+
+  if (vertCount === 0) return null;
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  geo.setIndex(index);
+  return new THREE.Mesh(geo, terrainMaterial);
+}
+
+// ---------- renderer, scene, camera ----------
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0xf0b987, 30, 115);
+
+const camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.05, 260);
+camera.rotation.order = 'YXZ';
+
+scene.add(new THREE.HemisphereLight(0xffe2b8, 0x5a3d22, 1.1));
+const sun = new THREE.DirectionalLight(0xffc98a, 2.0);
+sun.position.set(-0.5, 0.9, 0.3); // low, warm afternoon sun
+scene.add(sun);
+
+// Sky dome that follows the camera, with a warm glow where the sun is
+const sky = new THREE.Mesh(
+  new THREE.SphereGeometry(200, 32, 16),
+  new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    depthWrite: false,
+    fog: false,
+    uniforms: {
+      topColor: { value: new THREE.Color(0x4f79a6) },
+      horizonColor: { value: new THREE.Color(0xf0b987) },
+    },
+    vertexShader: `
+      varying vec3 vDir;
+      void main() {
+        vDir = position;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 topColor;
+      uniform vec3 horizonColor;
+      varying vec3 vDir;
+      void main() {
+        vec3 dir = normalize(vDir);
+        float t = smoothstep(0.0, 0.7, dir.y);
+        vec3 col = mix(horizonColor, topColor, t);
+        float sunAmount = max(dot(dir, normalize(vec3(-0.466, 0.839, 0.280))), 0.0);
+        col += vec3(1.0, 0.75, 0.45) * pow(sunAmount, 6.0) * 0.5;
+        gl_FragColor = vec4(col, 1.0);
+        #include <colorspace_fragment>
+      }
+    `,
+  })
+);
+scene.add(sky);
+
+// ---------- player ----------
+const player = { x: 0.5, y: 0, z: 0.5 };
+let vy = 0;
+let onGround = false;
+let yaw = 0;
+let pitch = -0.1;
+
+function solid(x, y, z) {
+  if (y < 0) return true;
+  if (y <= terrainHeight(x, z)) return true;
+  const t = treeAt(x, z);
+  return t !== null && y > t.base && y <= t.base + t.trunkH; // only trunks block the way, not leaves
+}
+
+// Height of the walkable surface under the player (highest of the nearby ground cells)
+function groundAt(x, z) {
+  let h = 0;
+  for (const ox of [-PLAYER_R, 0, PLAYER_R]) {
+    for (const oz of [-PLAYER_R, 0, PLAYER_R]) {
+      h = Math.max(h, terrainHeight(Math.floor(x + ox), Math.floor(z + oz)));
+    }
+  }
+  return h + 1;
+}
+
+// True if the player's body would overlap something at this foot height.
+// A single block of step is allowed, so the player walks up small slopes.
+function blocked(x, z, feet) {
+  for (const ox of [-PLAYER_R, PLAYER_R]) {
+    for (const oz of [-PLAYER_R, PLAYER_R]) {
+      const cx = Math.floor(x + ox), cz = Math.floor(z + oz);
+      for (let y = Math.floor(feet + 1); y <= Math.floor(feet + PLAYER_H - 0.1); y++) {
+        if (solid(cx, y, cz)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+// Try one axis at a time so the player slides along walls
+function tryMove(dx, dz) {
+  const nx = player.x + dx, nz = player.z + dz;
+  if (!blocked(nx, nz, player.y)) {
+    player.x = nx;
+    player.z = nz;
+  }
+}
+
+// Start in a spot without a tree trunk on it
+for (let i = 0; i < 50 && treeAt(Math.floor(player.x), Math.floor(player.z)); i++) player.x += 1;
+player.y = groundAt(player.x, player.z);
+
+const keys = {};
+window.addEventListener('keydown', (e) => {
+  keys[e.code] = true;
+  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+});
+window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+function updatePlayer(dt) {
+  const speed = (keys.ShiftLeft || keys.ShiftRight) ? 8 : 4.8;
+  let inX = 0, inZ = 0; // input relative to the camera: inX = right, inZ = forward
+  if (keys.KeyW || keys.ArrowUp) inZ += 1;
+  if (keys.KeyS || keys.ArrowDown) inZ -= 1;
+  if (keys.KeyD || keys.ArrowRight) inX += 1;
+  if (keys.KeyA || keys.ArrowLeft) inX -= 1;
+  if (inX || inZ) {
+    const len = Math.hypot(inX, inZ);
+    inX /= len; inZ /= len;
+    const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
+    const rx = Math.cos(yaw), rz = -Math.sin(yaw);
+    const dx = (fx * inZ + rx * inX) * speed * dt;
+    const dz = (fz * inZ + rz * inX) * speed * dt;
+    tryMove(dx, 0);
+    tryMove(0, dz);
+  }
+
+  if (keys.Space && onGround) {
+    vy = JUMP_V;
+    onGround = false;
+  }
+  vy -= GRAVITY * dt;
+  player.y += vy * dt;
+  const ground = groundAt(player.x, player.z);
+  if (player.y <= ground) {
+    player.y = ground;
+    vy = 0;
+    onGround = true;
+  } else {
+    onGround = false;
+  }
+}
+
+// ---------- chunk streaming ----------
+const chunks = new Map();
+let queue = [];
+let queueFor = '';
+const chunkKey = (cx, cz) => cx + ',' + cz;
+
+function updateChunks() {
+  const pcx = Math.floor(player.x / CS), pcz = Math.floor(player.z / CS);
+
+  for (const [key, ch] of chunks) {
+    if (Math.max(Math.abs(ch.cx - pcx), Math.abs(ch.cz - pcz)) > RENDER_DIST + 1) {
+      if (ch.mesh) {
+        scene.remove(ch.mesh);
+        ch.mesh.geometry.dispose();
+      }
+      chunks.delete(key);
+    }
+  }
+
+  // When the player crosses into a new chunk, queue the missing ones, nearest first
+  const pkey = chunkKey(pcx, pcz);
+  if (pkey !== queueFor) {
+    queueFor = pkey;
+    queue = [];
+    for (let dz = -RENDER_DIST; dz <= RENDER_DIST; dz++) {
+      for (let dx = -RENDER_DIST; dx <= RENDER_DIST; dx++) {
+        const cx = pcx + dx, cz = pcz + dz;
+        if (!chunks.has(chunkKey(cx, cz))) queue.push({ cx, cz, d: dx * dx + dz * dz });
+      }
+    }
+    queue.sort((a, b) => a.d - b.d);
+  }
+
+  for (let n = 0; n < CHUNKS_PER_FRAME && queue.length; n++) {
+    const { cx, cz } = queue.shift();
+    if (chunks.has(chunkKey(cx, cz))) continue;
+    const mesh = buildChunk(cx, cz);
+    if (mesh) scene.add(mesh);
+    chunks.set(chunkKey(cx, cz), { cx, cz, mesh });
+  }
+}
+
+// ---------- falling autumn leaves ----------
+const leafGeo = new THREE.BoxGeometry(0.24, 0.05, 0.24);
+const leafMat = new THREE.MeshLambertMaterial();
+const leaves = new THREE.InstancedMesh(leafGeo, leafMat, LEAF_COUNT);
+leaves.frustumCulled = false;
+scene.add(leaves);
+
+const dummy = new THREE.Object3D();
+const tmpColor = new THREE.Color();
+const leafState = [];
+
+function respawnLeaf(L, scatter) {
+  const a = Math.random() * Math.PI * 2;
+  const r = Math.sqrt(Math.random()) * LEAF_RADIUS;
+  L.x = player.x + Math.cos(a) * r;
+  L.z = player.z + Math.sin(a) * r;
+  // Scattered at start, otherwise dropped in above the player's head
+  L.y = scatter ? player.y - 2 + Math.random() * 18 : player.y + 6 + Math.random() * 10;
+  L.fall = 0.8 + Math.random() * 0.7;
+  L.amp = 0.5 + Math.random() * 0.7;
+  L.sway = 0.6 + Math.random() * 0.8;
+  L.ph = Math.random() * Math.PI * 2;
+  L.rx = Math.random() * Math.PI * 2;
+  L.ry = Math.random() * Math.PI * 2;
+  L.rz = Math.random() * Math.PI * 2;
+  L.sx = (Math.random() - 0.5) * 4;
+  L.sy = (Math.random() - 0.5) * 4;
+  L.sz = (Math.random() - 0.5) * 4;
+}
+
+for (let i = 0; i < LEAF_COUNT; i++) {
+  const L = {};
+  respawnLeaf(L, true);
+  leafState.push(L);
+  leaves.setColorAt(i, tmpColor.setHex(LEAF_COLORS[Math.floor(Math.random() * LEAF_COLORS.length)]));
+}
+leaves.instanceColor.needsUpdate = true;
+
+function updateLeaves(dt, t) {
+  for (let i = 0; i < LEAF_COUNT; i++) {
+    const L = leafState[i];
+    L.y -= L.fall * dt;
+    L.x += Math.cos(t * L.sway + L.ph) * L.amp * dt;
+    L.z += Math.sin(t * L.sway * 0.7 + L.ph) * L.amp * dt;
+    L.rx += L.sx * dt;
+    L.ry += L.sy * dt;
+    L.rz += L.sz * dt;
+
+    const far = (L.x - player.x) ** 2 + (L.z - player.z) ** 2 > LEAF_RADIUS * LEAF_RADIUS;
+    const ground = terrainHeight(Math.floor(L.x), Math.floor(L.z)) + 1;
+    if (far || L.y < ground + 0.1) respawnLeaf(L, false);
+
+    dummy.position.set(L.x, L.y, L.z);
+    dummy.rotation.set(L.rx, L.ry, L.rz);
+    dummy.updateMatrix();
+    leaves.setMatrixAt(i, dummy.matrix);
+  }
+  leaves.instanceMatrix.needsUpdate = true;
+}
+
+// ---------- pointer lock and UI ----------
+const overlay = document.getElementById('overlay');
+const hud = document.getElementById('hud');
+
+overlay.addEventListener('click', () => renderer.domElement.requestPointerLock());
+document.addEventListener('pointerlockchange', () => {
+  overlay.classList.toggle('hidden', document.pointerLockElement === renderer.domElement);
+});
+document.addEventListener('mousemove', (e) => {
+  if (document.pointerLockElement !== renderer.domElement) return;
+  yaw -= e.movementX * 0.0022;
+  pitch = Math.max(-1.5, Math.min(1.5, pitch - e.movementY * 0.0022));
+});
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ---------- main loop ----------
+const clock = new THREE.Clock();
+let time = 0;
+let frames = 0;
+let fpsTime = 0;
+let fps = 0;
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  time += dt;
+
+  updatePlayer(dt);
+  updateChunks();
+  updateLeaves(dt, time);
+
+  camera.position.set(player.x, player.y + EYE, player.z);
+  camera.rotation.set(pitch, yaw, 0);
+  sky.position.copy(camera.position);
+  renderer.render(scene, camera);
+
+  frames++;
+  fpsTime += dt;
+  if (fpsTime >= 0.5) {
+    fps = Math.round(frames / fpsTime);
+    frames = 0;
+    fpsTime = 0;
+    hud.textContent =
+      'FPS ' + fps + '\n' +
+      'Chunks loaded ' + chunks.size + '\n' +
+      'Position ' + player.x.toFixed(1) + ', ' + player.z.toFixed(1) + ' (height ' + player.y.toFixed(1) + ')';
+  }
+}
+
+animate();
+</script>
+</body>
+</html>

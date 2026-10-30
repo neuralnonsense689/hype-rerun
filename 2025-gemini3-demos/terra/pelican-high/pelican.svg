@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="780" viewBox="0 0 1000 780" role="img" aria-labelledby="title desc">
+  <title id="title">California brown pelican riding a bicycle</title>
+  <desc id="desc">A breeding plumage California brown pelican, with a golden head, white neck, chestnut hindneck, dark pouch and layered brown feathers, pedals a teal bicycle with spoked wheels.</desc>
+  <defs>
+    <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#e6f5f3"/><stop offset="1" stop-color="#faf2df"/></linearGradient>
+    <linearGradient id="body" x2="0.8" y2="1"><stop stop-color="#b5a89a"/><stop offset="0.48" stop-color="#82766f"/><stop offset="1" stop-color="#514c4b"/></linearGradient>
+    <linearGradient id="wing" x2="0.7" y2="1"><stop stop-color="#a99d91"/><stop offset="1" stop-color="#554f4b"/></linearGradient>
+    <linearGradient id="pouch" x2="0.3" y2="1"><stop stop-color="#684a47"/><stop offset="1" stop-color="#332d32"/></linearGradient>
+    <linearGradient id="head" x2="0" y2="1"><stop stop-color="#f3ce77"/><stop offset="0.45" stop-color="#f2e6c9"/><stop offset="1" stop-color="#d9d5cd"/></linearGradient>
+    <g id="wheel">
+      <circle r="151" fill="#faf5e9" stroke="#303c3d" stroke-width="13"/>
+      <circle r="139" fill="none" stroke="#c6b8a0" stroke-width="4"/>
+      <g stroke="#8d9994" stroke-width="2.3">
+        <path d="M-139 0H139 M0-139V139 M-120-70L120 70 M-120 70L120-70 M-70-120L70 120 M-70 120L70-120 M-135-36L135 36 M-135 36L135-36 M-36-135L36 135 M-36 135L36-135 M-98-98L98 98 M-98 98L98-98"/>
+      </g>
+      <circle r="9" fill="#3a4745" stroke="#e1d8c5" stroke-width="3"/>
+    </g>
+  </defs>
+  <rect width="1000" height="780" fill="url(#sky)"/>
+  <path d="M0 662 Q180 645 335 663 T680 663 T1000 657 V780 H0Z" fill="#dddac5"/>
+  <path d="M0 705 Q250 693 500 706 T1000 700" fill="none" stroke="#c8c8ae" stroke-width="3"/>
+  <ellipse cx="458" cy="739" rx="390" ry="17" fill="#b1b4a6" opacity=".25"/>
+  <!-- Bicycle wheels, drivetrain, and diamond frame -->
+  <use href="#wheel" x="218" y="575"/><use href="#wheel" x="714" y="575"/>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M218 575 L355 397 L443 575 Z M355 397 L581 407 L443 575 M581 407 L714 575" stroke="#245f5d" stroke-width="13"/>
+    <path d="M218 575 L355 397 L443 575 Z M355 397 L581 407 L443 575 M581 407 L714 575" stroke="#77b2a2" stroke-width="4"/>
+    <path d="M581 407 L563 365 L601 350 Q617 345 627 354" stroke="#344b4a" stroke-width="9"/>
+    <path d="M346 397 L338 373" stroke="#344b4a" stroke-width="8"/>
+  </g>
+  <path d="M305 369 Q337 358 372 367 Q380 370 371 375 L312 378 Q301 377 305 369Z" fill="#393e3c"/>
+  <circle cx="443" cy="575" r="29" fill="#e8e5d5" stroke="#485b57" stroke-width="5"/>
+  <circle cx="443" cy="575" r="19" fill="none" stroke="#89958a" stroke-width="2" stroke-dasharray="3 5"/>
+  <path d="M218 575 L423 598 M218 575 L423 552" fill="none" stroke="#7d8980" stroke-width="3"/>
+  <path d="M443 575 L479 620 M443 575 L407 530" fill="none" stroke="#374847" stroke-width="7" stroke-linecap="round"/>
+  <path d="M464 623 H497 M391 527 H422" stroke="#303d3b" stroke-width="8" stroke-linecap="round"/>
+  <!-- Far leg, planted on the raised pedal -->
+  <path d="M349 410 Q357 444 386 462 L403 516" fill="none" stroke="#5d514e" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M403 516 Q409 525 425 525 L423 531 L392 531 Q386 528 393 522Z" fill="#4b4241"/>
+  <!-- Body and tail -->
+  <path d="M301 321 Q270 342 226 348 Q248 366 288 373 Q256 375 235 369 Q257 390 305 391 L340 367Z" fill="#665d58" stroke="#554e4a" stroke-width="2"/>
+  <path d="M300 322 Q341 292 415 307 Q474 318 490 359 Q494 396 455 416 Q401 445 334 416 Q291 398 282 368 Q277 342 300 322Z" fill="url(#body)" stroke="#625b56" stroke-width="3"/>
+  <!-- Back of the long neck, white foreneck and chestnut breeding hindneck -->
+  <path d="M435 343 Q457 325 452 292 Q447 267 435 246 Q418 218 426 188 Q435 163 460 163 Q484 168 491 193 Q494 218 481 241 Q471 264 482 286 Q495 311 486 346 Q479 366 461 374Z" fill="#f1eee4" stroke="#8b8179" stroke-width="2"/>
+  <path d="M428 194 Q419 219 436 246 Q449 272 450 296 Q454 321 442 337 Q450 354 463 358 Q473 328 464 300 Q454 270 454 250 Q452 224 452 195Z" fill="#713d38"/>
+  <path d="M434 202 Q429 225 442 247 Q451 264 454 280" fill="none" stroke="#a66c58" stroke-width="3" opacity=".7"/>
+  <!-- Wing: layered, individually indicated feathers -->
+  <path d="M302 337 Q337 305 399 319 Q442 326 461 350 Q447 380 417 399 Q380 418 326 396 Q301 382 302 337Z" fill="url(#wing)" stroke="#625a55" stroke-width="2"/>
+  <g fill="none" stroke="#d5c6b5" stroke-width="2" opacity=".8" stroke-linecap="round">
+    <path d="M310 341 Q327 340 341 351 M320 330 Q340 330 355 342 M337 325 Q357 326 371 338 M355 322 Q375 324 390 338 M376 323 Q397 327 410 341 M397 328 Q415 333 427 346 M419 337 Q432 341 442 351"/>
+    <path d="M308 354 Q323 365 340 362 M318 365 Q335 377 352 372 M330 378 Q347 388 366 381 M346 388 Q365 396 383 386 M365 394 Q385 399 403 386 M386 394 Q405 394 421 379 M407 386 Q424 380 437 366"/>
+  </g>
+  <g fill="none" stroke="#4e4946" stroke-width="2" opacity=".7"><path d="M311 355 Q337 380 375 383 M315 366 Q342 393 381 393 M325 380 Q352 402 391 400 M345 395 Q380 410 412 393 M363 403 Q395 412 427 386"/></g>
+  <!-- Head, eye and breeding pouch -->
+  <path d="M425 190 Q423 169 436 154 Q450 140 471 147 Q491 152 495 173 Q497 185 489 200 Q482 213 466 216 Q446 216 433 207 Q426 201 425 190Z" fill="url(#head)" stroke="#9e9380" stroke-width="2"/>
+  <path d="M433 165 Q446 144 465 147 Q480 150 487 163 Q464 157 433 171Z" fill="#e4bc63" opacity=".85"/>
+  <path d="M485 183 Q511 192 547 217 L689 276 Q694 280 688 283 L557 252 Q518 248 491 215 Q483 205 485 183Z" fill="url(#pouch)" stroke="#52403e" stroke-width="2"/>
+  <path d="M489 185 Q535 194 590 223 L691 272 Q699 277 689 280 L577 245 Q527 231 488 202Z" fill="#b5a398" stroke="#665b55" stroke-width="2"/>
+  <path d="M493 192 Q551 206 610 238 L685 276" fill="none" stroke="#e2cbb7" stroke-width="3"/>
+  <path d="M502 208 Q529 234 558 243" fill="none" stroke="#b17b6f" stroke-width="2" opacity=".65"/>
+  <path d="M473 180 Q481 174 488 180 Q485 190 476 190 Q470 187 473 180Z" fill="#aa7062"/>
+  <circle cx="480" cy="182" r="4" fill="#242c2c"/><circle cx="481" cy="181" r="1.2" fill="#fff"/>
+  <!-- Near leg extends to the lower pedal; webbed toes wrap across it -->
+  <path d="M396 405 Q420 431 441 466 L470 521 Q480 540 480 606" fill="none" stroke="#514849" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M480 600 Q485 609 493 613 L511 617 Q516 619 511 623 L491 622 L482 625 L463 623 Q457 620 464 616 L472 609Z" fill="#494344" stroke="#373a39" stroke-width="2"/>
+  <path d="M475 612 L481 620 M483 612 L489 620 M491 615 L498 620" stroke="#8b7a70" stroke-width="1.5"/>
+</svg>

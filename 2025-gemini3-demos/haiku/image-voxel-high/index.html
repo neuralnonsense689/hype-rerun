@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Floating Cherry Isle · Voxel Scene</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #f0e6e6; }
+  canvas { display: block; }
+  #caption {
+    position: fixed; left: 24px; bottom: 20px; pointer-events: none;
+    font-family: "Avenir Next", system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: #5b4650; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+  }
+  #caption h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: 0.02em; }
+  #caption p { margin: 4px 0 0; font-size: 13px; opacity: 0.7; }
+</style>
+</head>
+<body>
+<div id="caption">
+  <h1>Floating Cherry Isle</h1>
+  <p>Drag to orbit · scroll to zoom</p>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ---------- Seeded randomness, so the scene looks the same on every load ----------
+function mulberry32(seed) {
+  return function () {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rnd = mulberry32(2025);
+const rr = (a, b) => a + (b - a) * rnd();
+const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
+const hash3 = (x, y, z) => {
+  const h = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453;
+  return h - Math.floor(h);
+};
+
+// ---------- Colors (soft, slightly desaturated, like the reference painting) ----------
+const PALETTE = {
+  rock:    [0x6f665c, 0x80776b, 0x5b544c, 0x8d857a, 0x6b6d68],
+  grass:   [0x86b858, 0x9bc765, 0x6f9f43, 0xa8d374],
+  moss:    [0x4f7d36, 0x5f9040, 0x3e6a2b, 0x76a64d],
+  vine:    [0x6aa84a, 0x579a3e, 0x7dbd57],
+  wood:    [0x5b4439, 0x6d5043, 0x4b3731, 0x7b5b4a],
+  blossom: [0xffc4d7, 0xf7a7c1, 0xffd9e5, 0xf193b2, 0xffe8f0],
+  stone:   [0xa39c90, 0xb2aca0, 0x948d80, 0xbfb8aa],
+  water:   [0xe9f7ff, 0xd3ecf8, 0xf6fcff],
+  cloud:   [0xffffff, 0xfcf3f5, 0xf3eaf0, 0xf7eef8],
+  far:     [0x8fa67a, 0x7f9a6c, 0xa7b08a],
+  farRock: [0x9a9288, 0x8b8379, 0xa9a08f],
+};
+
+// ---------- Voxel store: every block is keyed by its grid position ----------
+const world = new Map();
+const ISLAND_KINDS = new Set(['rock', 'moss', 'grass']);
+
+function put(x, y, z, kind, force = false) {
+  const key = `${x},${y},${z}`;
+  if (force || !world.has(key)) {
+    world.set(key, { x, y, z, kind, c: pick(PALETTE[kind]) });
+  }
+}
+
+function blob(cx, cy, cz, r, kind, force = false) {
+  const X = Math.round(cx), Y = Math.round(cy), Z = Math.round(cz);
+  const N = Math.ceil(r);
+  for (let dx = -N; dx <= N; dx++)
+    for (let dy = -N; dy <= N; dy++)
+      for (let dz = -N; dz <= N; dz++)
+        if (dx * dx + dy * dy + dz * dz <= r * r + 0.25) put(X + dx, Y + dy, Z + dz, kind, force);
+}
+
+// ---------- Floating island: wide grassy top, tapering rocky underside ----------
+const ISLE = { rx: 17, rz: 13, depth: 22 };
+
+for (let y = 0; y > -ISLE.depth; y--) {
+  const t = -y / ISLE.depth;
+  const s = Math.pow(Math.max(0, 1 - Math.pow(t, 2.2)), 0.6);
+  const rx = ISLE.rx * s, rz = ISLE.rz * s;
+  if (rx < 1) continue;
+  for (let x = -18; x <= 18; x++) {
+    for (let z = -14; z <= 14; z++) {
+      const nx = x / rx, nz = z / rz;
+      const rim = nx * nx + nz * nz;
+      if (rim + (hash3(x, y, z) - 0.5) * 0.45 > 1) continue;
+      if (y === 0) put(x, y, z, 'grass');
+      else if (-y <= 4 && (rim > 0.55 ? rnd() < 0.6 : rnd() < 0.12)) put(x, y, z, 'moss');
+      else put(x, y, z, 'rock');
+    }
+  }
+}
+
+// Grass tufts and a few fallen petals on the top surface
+for (const v of [...world.values()].filter((v) => v.y === 0)) {
+  if (rnd() < 0.12) put(v.x, 1, v.z, 'grass');
+  else if (rnd() < 0.015) put(v.x, 1, v.z, 'blossom');
+}
+
+// Vines dangling from the rim, growing down into the air beside the rock
+const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+const rimSpots = [];
+for (const v of [...world.values()]) {
+  if (!ISLAND_KINDS.has(v.kind) || v.y > -1 || v.y < -9) continue;
+  for (const [dx, dz] of DIRS) {
+    if (!world.has(`${v.x + dx},${v.y},${v.z + dz}`)) {
+      rimSpots.push({ x: v.x + dx, y: v.y, z: v.z + dz });
+      break;
+    }
+  }
+}
+for (const spot of rimSpots) {
+  if (rnd() > 0.1) continue;
+  const len = Math.floor(rr(3, 9));
+  for (let k = 0; k < len; k++) {
+    if (world.has(`${spot.x},${spot.y - k},${spot.z}`)) break;
+    put(spot.x, spot.y - k, spot.z, 'vine');
+  }
+}
+
+// Two broken stone pillars, like the ruins beside the tree
+function pillar(cx, cz, height) {
+  for (let dx = 0; dx < 2; dx++) {
+    for (let dz = 0; dz < 2; dz++) {
+      const top = height - Math.floor(rr(0, 2.5));
+      for (let y = 1; y <= top; y++) put(cx + dx, y, cz + dz, rnd() < 0.12 ? 'moss' : 'stone', true);
+    }
+  }
+}
+pillar(-8, -4, 7);
+pillar(8, -3, 5);
+
+// ---------- Cherry tree: recursive branches that end in blossom clusters ----------
+const TREE = { x: -1, z: 0 };
+
+function blossomCluster(cx, cy, cz, R) {
+  const X = Math.round(cx), Y = Math.round(cy), Z = Math.round(cz);
+  const N = Math.ceil(R), R2 = R * R;
+  for (let dx = -N; dx <= N; dx++)
+    for (let dy = -N; dy <= N; dy++)
+      for (let dz = -N; dz <= N; dz++) {
+        const d2 = dx * dx + dy * dy * 1.3 + dz * dz;
+        if (d2 <= R2 && rnd() < 0.82 - 0.35 * (d2 / R2)) put(X + dx, Y + dy, Z + dz, 'blossom');
+      }
+}
+
+function growBranch(x, y, z, dx, dy, dz, len, r, depth) {
+  const steps = Math.max(1, Math.round(len));
+  for (let i = 0; i <= steps; i++) {
+    const px = x + dx * i, py = y + dy * i, pz = z + dz * i;
+    blob(px, py, pz, Math.max(0.5, r * (1 - (0.3 * i) / steps)), 'wood', true);
+    if (depth >= 2 && i > 0 && rnd() < 0.4) blossomCluster(px, py, pz, rr(1.5, 2.3));
+  }
+  const ex = x + dx * steps, ey = y + dy * steps, ez = z + dz * steps;
+  if (depth >= 4 || r < 0.7) {
+    blossomCluster(ex, ey, ez, rr(3.6, 4.8));
+    return;
+  }
+  const kids = depth < 3 ? 3 : 2;
+  for (let k = 0; k < kids; k++) {
+    const ndx = dx + rr(-0.9, 0.9), ndy = dy + rr(-0.1, 0.5), ndz = dz + rr(-0.9, 0.9);
+    const l = Math.hypot(ndx, ndy, ndz);
+    growBranch(ex, ey, ez, ndx / l, ndy / l, ndz / l, len * rr(0.55, 0.72), r * 0.72, depth + 1);
+  }
+}
+
+growBranch(TREE.x, 1, TREE.z, 0, 1, 0, 7, 2.1, 0);
+
+// Roots spreading across the grass around the trunk
+for (let k = 0; k < 7; k++) {
+  const a = (k / 7) * Math.PI * 2 + rr(-0.2, 0.2);
+  for (let i = 2; i <= 4; i++) {
+    blob(TREE.x + Math.cos(a) * i * 1.3, 1, TREE.z + Math.sin(a) * i * 1.3, 0.8, 'wood', true);
+  }
+}
+
+// Scattered boulders on the grass, kept clear of the trunk
+for (let i = 0; i < 10; i++) {
+  const a = rr(0, Math.PI * 2), d = rr(4, 12);
+  const bx = Math.cos(a) * d * 1.1, bz = Math.sin(a) * d * 0.75;
+  if (Math.hypot(bx - TREE.x, bz - TREE.z) < 5) continue;
+  blob(bx, 1, bz, rr(0.9, 1.6), 'stone');
+}
+
+// Small rock chunks drifting around the underside
+const CHUNKS = [[-20, -12, 4, 2.0], [21, -9, -3, 1.6], [-16, -27, 2, 1.8], [14, -21, 8, 1.3], [-9, -33, -4, 1.2]];
+for (const [x, y, z, r] of CHUNKS) blob(x, y, z, r, 'rock', true);
+
+// ---------- Waterfall: a three-voxel-wide ribbon hugging the front rim ----------
+function frontEdgeZ(x, y) {
+  for (let z = 20; z >= -20; z--) {
+    const v = world.get(`${x},${y},${z}`);
+    if (v && ISLAND_KINDS.has(v.kind)) return z;
+  }
+  return null;
+}
+
+const fallPath = [];
+let edgeZ = 14;
+for (let y = -1; y >= -(ISLE.depth + 12); y--) {
+  edgeZ = frontEdgeZ(0, y) ?? edgeZ;
+  fallPath.push({ x: 0, y, z: edgeZ + 1 });
+}
+for (const p of fallPath) {
+  for (let dx = -1; dx <= 1; dx++) put(p.x + dx, p.y, p.z, 'water', true);
+}
+
+// ---------- Clouds below the island and a bank on the horizon ----------
+function cloudPuff(cx, cy, cz, R) {
+  const N = Math.ceil(R), R2 = R * R;
+  for (let dx = -N; dx <= N; dx++)
+    for (let dy = -N; dy <= N; dy++)
+      for (let dz = -N; dz <= N; dz++) {
+        const d2 = dx * dx + dy * dy * 3.2 + dz * dz;
+        if (d2 <= R2 && rnd() < 0.85 - 0.3 * (d2 / R2)) {
+          put(Math.round(cx) + dx, Math.round(cy) + dy, Math.round(cz) + dz, 'cloud');
+        }
+      }
+}
+for (let i = 0; i < 26; i++) cloudPuff(rr(-90, 90), rr(-50, -40), rr(-70, 30), rr(4, 7));
+for (let i = 0; i < 6; i++) cloudPuff(rr(-110, 110), rr(-26, -20), rr(-90, -60), rr(7, 10));
+
+// Distant ridge at the lower right, rising out of the clouds
+const RIDGE_BASE = -22;
+const distantColumns = [];
+for (let x = 16; x <= 84; x++) {
+  for (let z = -74; z <= -30; z++) {
+    const top = 5 + 6 * Math.sin(x * 0.09 + 1.2) + 3 * Math.cos(z * 0.13) + (hash3(x, 0, z) - 0.5) * 3;
+    if (top <= RIDGE_BASE) continue;
+    distantColumns.push({
+      x, y: (RIDGE_BASE + top) / 2, z,
+      sx: 0.96, sy: top - RIDGE_BASE, sz: 0.96,
+      c: pick(top > 9 ? PALETTE.farRock : PALETTE.far),
+    });
+  }
+}
+
+// ---------- Three.js scene ----------
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0xf0e4e4, 120, 320);
+
+// Soft pastel sky dome with a warm glow behind the tree
+const skyMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide,
+  depthWrite: false,
+  uniforms: {
+    topColor: { value: new THREE.Color(0xdde3ee) },
+    horizonColor: { value: new THREE.Color(0xf8ebe7) },
+    bottomColor: { value: new THREE.Color(0xe8d9da) },
+    sunDir: { value: new THREE.Vector3(-0.2, 0.3, -1).normalize() },
+  },
+  vertexShader: `
+    varying vec3 vDir;
+    void main() {
+      vDir = normalize(position);
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }`,
+  fragmentShader: `
+    uniform vec3 topColor;
+    uniform vec3 horizonColor;
+    uniform vec3 bottomColor;
+    uniform vec3 sunDir;
+    varying vec3 vDir;
+    void main() {
+      float h = vDir.y;
+      vec3 sky = h > 0.0
+        ? mix(horizonColor, topColor, smoothstep(0.0, 0.7, h))
+        : mix(horizonColor, bottomColor, smoothstep(0.0, -0.35, h));
+      float glow = pow(max(dot(normalize(vDir), normalize(sunDir)), 0.0), 6.0);
+      sky += vec3(1.0, 0.85, 0.75) * glow * 0.35;
+      gl_FragColor = vec4(sky, 1.0);
+      #include <colorspace_fragment>
+    }`,
+});
+scene.add(new THREE.Mesh(new THREE.SphereGeometry(500, 32, 16), skyMat));
+
+// Soft backlight from behind the tree, plus a gentle warm fill from the front
+scene.add(new THREE.HemisphereLight(0xfff4f0, 0xb8a6a4, 1.2));
+const sun = new THREE.DirectionalLight(0xffe4cc, 2.2);
+sun.position.set(-25, 55, -30);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -60, right: 60, top: 60, bottom: -60, near: 1, far: 250 });
+sun.shadow.camera.updateProjectionMatrix();
+sun.shadow.bias = -0.0008;
+sun.shadow.normalBias = 0.04;
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0xffc4d4, 0.6);
+fill.position.set(30, 20, 60);
+scene.add(fill);
+
+// Voxel meshes: one instanced mesh per group, each block gets its own color tint
+const voxelGeo = new THREE.BoxGeometry(1, 1, 1);
+const voxelMat = new THREE.MeshLambertMaterial();
+const dummy = new THREE.Object3D();
+const tint = new THREE.Color();
+
+function buildVoxelMesh(list) {
+  if (list.length === 0) return null;
+  const mesh = new THREE.InstancedMesh(voxelGeo, voxelMat, list.length);
+  list.forEach((v, i) => {
+    dummy.position.set(v.x, v.y, v.z);
+    dummy.rotation.set(0, 0, 0);
+    dummy.scale.set(v.sx ?? 0.94, v.sy ?? 0.94, v.sz ?? 0.94);
+    dummy.updateMatrix();
+    mesh.setMatrixAt(i, dummy.matrix);
+    mesh.setColorAt(i, tint.setHex(v.c).multiplyScalar(rr(0.93, 1.07)));
+  });
+  mesh.instanceMatrix.needsUpdate = true;
+  mesh.instanceColor.needsUpdate = true;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+const islandGroup = new THREE.Group();
+scene.add(islandGroup);
+const allVoxels = [...world.values()];
+islandGroup.add(buildVoxelMesh(allVoxels.filter((v) => v.kind !== 'cloud')));
+scene.add(buildVoxelMesh(allVoxels.filter((v) => v.kind === 'cloud')));
+scene.add(buildVoxelMesh(distantColumns));
+
+// Waterfall streaks: bright, emissive pieces that keep sliding down the static ribbon
+const STREAK_COUNT = 90;
+const streakGeo = new THREE.BoxGeometry(0.35, 1, 0.35);
+const streakMat = new THREE.MeshLambertMaterial({
+  color: 0xffffff,
+  emissive: 0x6fb0d6,
+  emissiveIntensity: 0.4,
+  transparent: true,
+  opacity: 0.85,
+  depthWrite: false,
+});
+const streaks = new THREE.InstancedMesh(streakGeo, streakMat, STREAK_COUNT);
+streaks.frustumCulled = false;
+islandGroup.add(streaks);
+const streakState = Array.from({ length: STREAK_COUNT }, () => ({
+  phase: rnd(),
+  speed: rr(0.1, 0.18),
+  ox: rr(-1.1, 1.1),
+  oz: rr(0.5, 0.9),
+  len: rr(1.2, 2.6),
+}));
+
+function updateStreaks(dt) {
+  streakState.forEach((s, i) => {
+    s.phase = (s.phase + dt * s.speed) % 1;
+    const f = s.phase * (fallPath.length - 1);
+    const i0 = Math.floor(f), i1 = Math.min(i0 + 1, fallPath.length - 1), u = f - i0;
+    const a = fallPath[i0], b = fallPath[i1];
+    dummy.position.set(
+      a.x + (b.x - a.x) * u + s.ox,
+      a.y + (b.y - a.y) * u,
+      a.z + (b.z - a.z) * u + s.oz,
+    );
+    dummy.rotation.set(0, 0, 0);
+    dummy.scale.set(0.35, s.len, 0.35);
+    dummy.updateMatrix();
+    streaks.setMatrixAt(i, dummy.matrix);
+  });
+  streaks.instanceMatrix.needsUpdate = true;
+}
+
+// Falling cherry petals drifting out of the canopy
+const PETAL_COUNT = 240;
+const petalGeo = new THREE.BoxGeometry(0.42, 0.08, 0.3);
+const petalMat = new THREE.MeshLambertMaterial({ side: THREE.DoubleSide });
+const petals = new THREE.InstancedMesh(petalGeo, petalMat, PETAL_COUNT);
+petals.frustumCulled = false;
+petals.castShadow = true;
+scene.add(petals);
+
+function resetPetal(p, scattered = false) {
+  p.pos.set(rr(-16, 14), scattered ? rr(-12, 24) : rr(14, 22), rr(-9, 9));
+  p.vel.set(rr(0.3, 1.2), rr(0.6, 1.4), rr(-0.3, 0.6));
+  p.spin.set(rr(0.6, 1.8), rr(0.4, 1.2), rr(0.6, 1.8));
+  p.phase = rr(0, Math.PI * 2);
+  p.size = rr(0.8, 1.3);
+}
+
+const petalState = [];
+for (let i = 0; i < PETAL_COUNT; i++) {
+  const p = { pos: new THREE.Vector3(), vel: new THREE.Vector3(), spin: new THREE.Vector3() };
+  resetPetal(p, true);
+  petalState.push(p);
+  petals.setColorAt(i, tint.setHex(pick(PALETTE.blossom)));
+}
+petals.instanceColor.needsUpdate = true;
+
+function updatePetals(dt, t) {
+  petalState.forEach((p, i) => {
+    p.pos.x += (p.vel.x + Math.sin(t * 0.9 + p.phase) * 0.8) * dt;
+    p.pos.y -= p.vel.y * dt;
+    p.pos.z += (p.vel.z + Math.cos(t * 0.7 + p.phase) * 0.5) * dt;
+    if (p.pos.y < -12 || Math.abs(p.pos.x) > 45) resetPetal(p);
+    dummy.position.copy(p.pos);
+    dummy.rotation.set(t * p.spin.x + p.phase, t * p.spin.y, t * p.spin.z);
+    dummy.scale.setScalar(p.size);
+    dummy.updateMatrix();
+    petals.setMatrixAt(i, dummy.matrix);
+  });
+  petals.instanceMatrix.needsUpdate = true;
+}
+
+// ---------- Camera and controls ----------
+const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.5, 900);
+camera.position.set(32, 4, 88);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, -9, 0);
+controls.enableDamping = true;
+controls.minDistance = 45;
+controls.maxDistance = 220;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.25;
+controls.addEventListener('start', () => { controls.autoRotate = false; });
+controls.update();
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.fov = camera.aspect < 1 ? 46 : 30;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// ---------- Animation loop ----------
+const startTime = performance.now();
+let lastTime = startTime;
+
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min((now - lastTime) / 1000, 0.05);
+  const t = (now - startTime) / 1000;
+  lastTime = now;
+
+  islandGroup.position.y = Math.sin(t * 0.6) * 0.5;
+  updateStreaks(dt);
+  updatePetals(dt, t);
+  controls.update();
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

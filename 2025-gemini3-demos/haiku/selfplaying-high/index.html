@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snake, Playing Itself</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 30%, #1b2440 0%, #070a14 75%);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: #cfd8ff;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+  }
+  #bar {
+    display: flex;
+    justify-content: space-between;
+    box-sizing: border-box;
+    padding: 0 4px;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.6;
+  }
+  #bar b { font-weight: 600; color: #ffffff; }
+  canvas {
+    display: block;
+    border-radius: 18px;
+    background: linear-gradient(160deg, #141b33 0%, #0b1020 100%);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  }
+</style>
+</head>
+<body>
+<div id="bar" style="width: 100%;">
+  <span>Snake, playing itself</span>
+  <span>Score <b id="score">0</b> &nbsp;·&nbsp; Best <b id="best">0</b></span>
+</div>
+<canvas id="board"></canvas>
+
+<script>
+  const COLS = 22;
+  const ROWS = 22;
+  const TICK_MS = 85;          // time between moves
+  const RESTART_MS = 2200;     // pause on the game-over card before a new game
+  const TAU = Math.PI * 2;
+  const DIRS = [{ x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 0, y: -1 }];
+
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const bestEl = document.getElementById('best');
+
+  let cell = 0;
+  let dpr = 1;
+  let snake = [];
+  let prev = [];
+  let dir = { x: 1, y: 0 };
+  let food = null;
+  let score = 0;
+  let best = 0;
+  let over = null;
+  let lastTick = 0;
+
+  // ---------- helpers ----------
+
+  const idx = (p) => p.y * COLS + p.x;
+  const inside = (p) => p.x >= 0 && p.y >= 0 && p.x < COLS && p.y < ROWS;
+  const same = (a, b) => a.x === b.x && a.y === b.y;
+
+  // Breadth-first search from `from` to the cell with index `goalI`.
+  // Returns the list of cell indexes along the way (first step first), or null.
+  function findPath(from, blocked, goalI) {
+    const startI = idx(from);
+    const prevOf = new Map([[startI, -1]]);
+    const queue = [from];
+    for (let i = 0; i < queue.length; i++) {
+      const p = queue[i];
+      const pi = idx(p);
+      if (pi === goalI) {
+        const path = [];
+        for (let c = pi; c !== startI; c = prevOf.get(c)) path.push(c);
+        return path.reverse();
+      }
+      for (const d of DIRS) {
+        const n = { x: p.x + d.x, y: p.y + d.y };
+        if (!inside(n)) continue;
+        const ni = idx(n);
+        if (blocked.has(ni) || prevOf.has(ni)) continue;
+        prevOf.set(ni, pi);
+        queue.push(n);
+      }
+    }
+    return null;
+  }
+
+  // How many open cells can be reached from `from`.
+  function room(from, blocked) {
+    const seen = new Set([idx(from)]);
+    const queue = [from];
+    for (let i = 0; i < queue.length; i++) {
+      const p = queue[i];
+      for (const d of DIRS) {
+        const n = { x: p.x + d.x, y: p.y + d.y };
+        if (!inside(n)) continue;
+        const ni = idx(n);
+        if (blocked.has(ni) || seen.has(ni)) continue;
+        seen.add(ni);
+        queue.push(n);
+      }
+    }
+    return queue.length;
+  }
+
+  function spawnFood() {
+    const taken = new Set(snake.map(idx));
+    const free = [];
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        if (!taken.has(y * COLS + x)) free.push({ x, y });
+      }
+    }
+    if (!free.length) return null;
+    return free[Math.floor(Math.random() * free.length)];
+  }
+
+  // ---------- the player ----------
+
+  // Pick the next direction. Prefer the shortest path to food, as long as the
+  // snake can still reach its own tail afterwards. Otherwise take the safest
+  // move that leaves the most open space.
+  function think() {
+    const head = snake[0];
+    const body = new Set(snake.slice(0, -1).map(idx));
+    const options = [];
+
+    for (const d of DIRS) {
+      const n = { x: head.x + d.x, y: head.y + d.y };
+      if (!inside(n) || body.has(idx(n))) continue;
+
+      const eat = same(n, food);
+      const next = [n, ...snake.slice(0, eat ? snake.length : snake.length - 1)];
+      const blocked = new Set(next.slice(0, -1).map(idx));
+      const tail = next[next.length - 1];
+
+      options.push({
+        d,
+        n,
+        i: idx(n),
+        eat,
+        safe: findPath(n, blocked, idx(tail)) !== null,
+        room: room(n, blocked),
+        dist: Math.abs(n.x - food.x) + Math.abs(n.y - food.y),
+      });
+    }
+
+    if (!options.length) return null;
+
+    const path = findPath(head, body, idx(food));
+    if (path) {
+      const direct = options.find((o) => o.i === path[0] && o.safe);
+      if (direct) return direct;
+    }
+
+    options.sort((a, b) => (b.safe - a.safe) || (b.room - a.room) || (a.dist - b.dist));
+    return options[0];
+  }
+
+  function step(now) {
+    const choice = think();
+    if (!choice) {
+      over = { at: now, title: 'Game over' };
+      return;
+    }
+
+    dir = choice.d;
+    snake.unshift(choice.n);
+
+    if (choice.eat) {
+      score++;
+      best = Math.max(best, score);
+      food = spawnFood();
+      if (!food) over = { at: now, title: 'Perfect game!' };
+    } else {
+      snake.pop();
+    }
+
+    scoreEl.textContent = score;
+    bestEl.textContent = best;
+  }
+
+  function reset() {
+    const cx = Math.floor(COLS / 2);
+    const cy = Math.floor(ROWS / 2);
+    snake = [{ x: cx, y: cy }, { x: cx - 1, y: cy }, { x: cx - 2, y: cy }];
+    prev = snake.map((s) => ({ ...s }));
+    dir = { x: 1, y: 0 };
+    score = 0;
+    over = null;
+    food = spawnFood();
+    scoreEl.textContent = score;
+  }
+
+  // ---------- drawing ----------
+
+  function colorAt(f) {
+    const hue = 165 + 100 * f;
+    const light = 64 - 14 * f;
+    return `hsl(${hue}, 80%, ${light}%)`;
+  }
+
+  function draw(now) {
+    const size = cell * COLS;
+    const t = over ? 1 : Math.min(1, (now - lastTick) / TICK_MS);
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, size, size);
+
+    // faint grid dots
+    ctx.fillStyle = 'rgba(180, 200, 255, 0.08)';
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        ctx.fillRect((x + 0.5) * cell - 1, (y + 0.5) * cell - 1, 2, 2);
+      }
+    }
+
+    // food, with a gentle pulse
+    if (food) {
+      const pulse = 0.5 + 0.5 * Math.sin(now / 200);
+      const fx = (food.x + 0.5) * cell;
+      const fy = (food.y + 0.5) * cell;
+      ctx.shadowColor = '#ff6b8b';
+      ctx.shadowBlur = cell * (0.6 + 0.4 * pulse);
+      ctx.fillStyle = '#ff6b8b';
+      ctx.beginPath();
+      ctx.arc(fx, fy, cell * (0.26 + 0.04 * pulse), 0, TAU);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    // snake positions, glided from last step to this one
+    const pts = snake.map((s, i) => {
+      const f = prev[Math.min(i, prev.length - 1)];
+      return {
+        x: (f.x + (s.x - f.x) * t + 0.5) * cell,
+        y: (f.y + (s.y - f.y) * t + 0.5) * cell,
+      };
+    });
+
+    // body, drawn from tail to head so the head sits on top
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = cell * 0.78;
+    for (let i = pts.length - 1; i > 0; i--) {
+      ctx.strokeStyle = colorAt(i / (pts.length - 1));
+      ctx.beginPath();
+      ctx.moveTo(pts[i].x, pts[i].y);
+      ctx.lineTo(pts[i - 1].x, pts[i - 1].y);
+      ctx.stroke();
+    }
+
+    // head with eyes that face the way it is moving
+    const h = pts[0];
+    ctx.shadowColor = colorAt(0);
+    ctx.shadowBlur = cell * 0.6;
+    ctx.fillStyle = colorAt(0);
+    ctx.beginPath();
+    ctx.arc(h.x, h.y, cell * 0.42, 0, TAU);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    const px = -dir.y;
+    const py = dir.x;
+    for (const side of [-1, 1]) {
+      const ex = h.x + dir.x * cell * 0.14 + px * cell * 0.18 * side;
+      const ey = h.y + dir.y * cell * 0.14 + py * cell * 0.18 * side;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(ex, ey, cell * 0.1, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = '#0b1020';
+      ctx.beginPath();
+      ctx.arc(ex + dir.x * cell * 0.04, ey + dir.y * cell * 0.04, cell * 0.05, 0, TAU);
+      ctx.fill();
+    }
+
+    // game-over card
+    if (over) {
+      ctx.globalAlpha = Math.min(1, (now - over.at) / 400);
+      ctx.fillStyle = 'rgba(7, 10, 20, 0.6)';
+      ctx.fillRect(0, 0, size, size);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#e8edff';
+      ctx.font = `600 ${cell * 1.3}px -apple-system, Helvetica, Arial, sans-serif`;
+      ctx.fillText(over.title, size / 2, size / 2 - cell * 0.6);
+      ctx.font = `400 ${cell * 0.8}px -apple-system, Helvetica, Arial, sans-serif`;
+      ctx.fillText(`Score ${score}`, size / 2, size / 2 + cell * 0.8);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // ---------- loop ----------
+
+  function resize() {
+    const size = Math.max(240, Math.min(window.innerWidth - 32, window.innerHeight - 110, 620));
+    dpr = window.devicePixelRatio || 1;
+    cell = size / COLS;
+    canvas.style.width = size + 'px';
+    canvas.style.height = size + 'px';
+    canvas.width = Math.floor(size * dpr);
+    canvas.height = Math.floor(size * dpr);
+  }
+
+  function frame(now) {
+    if (!lastTick) lastTick = now;
+
+    if (!over && now - lastTick >= TICK_MS) {
+      prev = snake.map((s) => ({ ...s }));
+      step(now);
+      lastTick = now;
+    }
+
+    if (over && now - over.at > RESTART_MS) {
+      reset();
+      lastTick = now;
+    }
+
+    draw(now);
+    requestAnimationFrame(frame);
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+  reset();
+  bestEl.textContent = best;
+  requestAnimationFrame(frame);
+</script>
+</body>
+</html>
