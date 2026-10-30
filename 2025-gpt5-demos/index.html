@@ -35,23 +35,28 @@
 
 <h2>3D aquarium</h2>
 <video src="clips/aquarium.mp4" autoplay muted loop playsinline controls></video>
-<p>Mauricio Acosta tested GPT-5 in Cursor on launch day (Aug 2025) with a 3D aquarium plan inside a Next.js project that already had a Space Invaders page. Haiku 5.5 got the same plan, word for word, in a similar Next.js project with a small Space Invaders page.</p>
+<p>On GPT-5 launch day (Aug 2025), a developer tested it in Cursor with a 3D aquarium plan inside a Next.js project that already had a Space Invaders page. Haiku 5.5 got the same plan, word for word, in a similar Next.js project with a small Space Invaders page.</p>
 <div class="runs">
   <a href="haiku/aquarium-xhigh/">Haiku xhigh, live</a>
   <a href="haiku/aquarium-high/">Haiku high, live</a>
-  <a href="https://www.mauricioacosta.dev/blog/gpt5-vs-claude-code-3d-aquarium-comparison">Original post with the GPT-5 video and prompt</a>
+  <a href="https://www.mauricioacosta.dev/blog/gpt5-vs-claude-code-3d-aquarium-comparison">Original post by Mauricio Acosta, with the GPT-5 video and prompt</a>
 </div>
 
 <h2>3D octopus</h2>
 <video src="clips/octopus.mp4" autoplay muted loop playsinline controls></video>
-<p>From Guy Bary's GPT-5 vs Sonnet 4 comparison (Sep 2025). His prompt asks for research with the Octocode MCP; the GPT-5 result on the left is his run without that tool. Haiku got the same prompt, also without search tools.</p>
+<p>From a GPT-5 vs Sonnet 4 comparison (Sep 2025) by the maker of Octocode, a code search tool. The prompt asks for research with the Octocode MCP; the GPT-5 result on the left is the run without that tool. Haiku got the same prompt, also without search tools.</p>
 <div class="runs">
   <a href="haiku/octopus-high/">Haiku high, live</a>
   <a href="haiku/octopus-xhigh/">Haiku xhigh, live</a>
-  <a href="https://octocode-sonnet4-gpt5-comparisson.vercel.app">Original comparison page with the prompt</a>
+  <a href="https://octocode-sonnet4-gpt5-comparisson.vercel.app">Original comparison page by Guy Bary, with the prompt</a>
 </div>
 <video src="clips/octopus-effort.mp4" autoplay muted loop playsinline controls></video>
-<p>More effort did worse here. On xhigh, Haiku named a shader variable <code>patch</code>, which is a reserved word in GLSL, so the sea floor never compiles. It had no browser, so it never saw the error.</p>
+<p>More effort did worse here. On xhigh, Haiku named a shader variable <code>patch</code>, which is a reserved word in GLSL, so the sea floor never compiles.</p>
+<video src="clips/octopus-browserfix.mp4" autoplay muted loop playsinline controls></video>
+<p>Then one follow-up to that xhigh run: open the page in a browser with Playwright MCP, check the console, and fix only what causes errors. Haiku found the reserved word and renamed it to <code>sandPatch</code>, a two-line change. It took 36 seconds and about one cent. I don't know whether the GPT-5 run got a check like this, so both versions are here.</p>
+<div class="runs">
+  <a href="haiku/octopus-xhigh-browserfix/">Haiku xhigh after the browser check, live</a>
+</div>
 
 <h2>Solar system explorer</h2>
 <video src="clips/solar.mp4" autoplay muted loop playsinline controls></video>
@@ -70,16 +75,18 @@
   <tr><td>Aquarium</td><td>xhigh</td><td class="num">$0.54</td><td class="num">13 min</td></tr>
   <tr><td>Octopus</td><td>high</td><td class="num">$0.07</td><td class="num">6 min</td></tr>
   <tr><td>Octopus</td><td>xhigh</td><td class="num">$0.17</td><td class="num">8 min</td></tr>
+  <tr><td>Octopus, browser check</td><td>xhigh</td><td class="num">$0.01</td><td class="num">36 s</td></tr>
   <tr><td>Solar system</td><td>high</td><td class="num">$0.04</td><td class="num">3 min</td></tr>
   <tr><td>Solar system</td><td>xhigh</td><td class="num">$0.08</td><td class="num">6 min</td></tr>
-  <tr><td colspan="2"><strong>Total</strong></td><td class="num"><strong>$0.99</strong></td><td></td></tr>
+  <tr><td colspan="2"><strong>Total</strong></td><td class="num"><strong>$1.01</strong></td><td></td></tr>
 </table>
 
 <h2>How this was run</h2>
 <ul>
   <li>One run per demo and effort level, no retries, and the results are shown as they came out.</li>
-  <li>Claude Code in headless mode with model <code>claude-haiku-5-5</code>. No follow-up prompts from a human. The model could read and edit its own files. For the aquarium it could also run npm commands, as the original ran inside an IDE agent.</li>
-  <li>No browser and no web search, so the model never saw its own output render.</li>
+  <li>Claude Code in headless mode with model <code>claude-haiku-5-5</code>. No follow-up prompts from a human, except the one browser check on the octopus xhigh run. The model could read and edit its own files. For the aquarium it could also run npm commands, as the original ran inside an IDE agent.</li>
+  <li>No browser and no web search, so the model never saw its own output render. The exception is that octopus follow-up, which used Playwright MCP 0.0.83 in a headless browser.</li>
+  <li>Costs are API list prices for the tokens each run used, as Claude Code reports them.</li>
   <li>The original GPT-5 costs were not published, so there is no price comparison here.</li>
   <li>This is a rerun of public demos, not a benchmark.</li>
   <li>For hosting, the two aquarium apps were built as static files (a <code>next.config.ts</code> with a static export setting was added). Their code is otherwise unchanged.</li>
