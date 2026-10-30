@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f3eb">
+  <title>Minefield Social Club</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="Minefield Social Club home"><span class="brand-mark">✳</span><span>MINEFIELD<br><b>SOCIAL CLUB</b></span></a>
+      <div class="top-right"><span class="desktop-note">A LITTLE GAME FOR YOUR BRAIN</span><button id="sound" class="sound-button" aria-label="Mute sound" title="Toggle sound">♫ <span>Sound on</span></button></div>
+    </header>
+    <main>
+      <section class="intro"><div><div class="eyebrow"><span></span> THE CLASSIC, REIMAGINED <span></span></div><h1>A little less scrolling.<br><em>A little more sweeping.</em></h1><p>Clear your mind. Clear the mines. Try not to blow it.</p></div><div class="intro-stamp"><span>✳</span><small>GOOD CLEAN<br>FUN SINCE '89</small></div></section>
+      <div class="game-layout">
+        <section class="game-card" aria-label="Minesweeper game">
+          <div class="card-heading"><div><div class="section-kicker">THE MAIN EVENT <span>✦</span></div><h2>Minefield</h2></div><div class="level-control"><label for="difficulty">DIFFICULTY</label><select id="difficulty"><option value="beginner">Easy does it</option><option value="intermediate">Getting spicy</option><option value="expert">Full-on chaos</option></select></div></div>
+          <div class="game-console"><div class="console-top"><div class="counter"><span class="counter-icon">⚑</span><div><small>MINES LEFT</small><strong id="mines">010</strong></div></div><button class="face" id="reset" aria-label="Start a new game" title="Start a new game">🙂</button><div class="counter timer"><span class="counter-icon">◷</span><div><small>TIME</small><strong id="time">000</strong></div></div></div><div class="board-wrap"><div id="board" class="board" role="grid" aria-label="Minefield"></div></div><div class="console-bottom"><span><i></i> <span id="status">READY WHEN YOU ARE</span></span><span id="board-size">9 × 9 GRID</span></div></div>
+          <div class="game-footer"><span><b>✳</b> First click is always safe. Promise.</span><button id="new-game">↻ &nbsp; New game</button></div>
+        </section>
+        <aside class="sidebar">
+          <div class="side-heading"><span>YOUR FIELD GUIDE</span><span>01 / 03</span></div>
+          <h3>Small squares.<br><em>Big feelings.</em></h3><p class="side-copy">A little strategy, a little luck, and a whole lot of satisfying clicks.</p>
+          <div class="rule"><span class="rule-icon blue">✳</span><div><b>Find your footing</b><p>Reveal a square. Numbers tell you how many mines are touching it.</p></div></div>
+          <div class="rule"><span class="rule-icon coral">⚑</span><div><b>Mark the trouble</b><p>Right-click to plant a flag. On touch, press and hold or use flag mode.</p></div></div>
+          <div class="rule"><span class="rule-icon yellow">✦</span><div><b>Work smarter</b><p>Click a revealed number when its mines are flagged to clear its neighbors.</p></div></div>
+          <div class="lucky-card"><div class="lucky-top"><span>✦ &nbsp; A LITTLE SOMETHING EXTRA</span><span>✷</span></div><h4>Feeling lucky?</h4><p>Every 25 safe squares earns a Lucky Reveal. Use it to uncover a safe square.</p><button id="lucky" disabled>✧ &nbsp; Lucky Reveal <span id="lucky-count">0</span></button><div class="progress-label"><span>NEXT REVEAL</span><span id="progress-text">0 / 25</span></div><div class="progress"><div id="progress-bar"></div></div></div>
+          <div class="best"><span>✦ &nbsp; PERSONAL BEST</span><strong id="best">—</strong></div>
+        </aside>
+      </div>
+      <div class="touch-controls"><span>TOUCH CONTROLS</span><button id="mode" aria-pressed="false">☝ &nbsp; Reveal mode</button><small>Tap to switch between reveal and flag</small></div>
+      <footer><span>MADE FOR THE CURIOUS & THE CAUTIOUS</span><span>TAKE YOUR TIME. WATCH YOUR STEP. &nbsp; ✳</span></footer>
+    </main>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>

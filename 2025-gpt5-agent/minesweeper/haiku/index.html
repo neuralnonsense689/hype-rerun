@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#008080">
+  <title>Minesweeper</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main class="window">
+    <header class="titlebar">
+      <span aria-hidden="true">💣</span>
+      <span>Minesweeper</span>
+    </header>
+
+    <nav class="menubar" id="menubar">
+      <div class="menu">
+        <button class="menu-btn" type="button">Game</button>
+        <div class="dropdown">
+          <button type="button" data-action="new">New <kbd>F2</kbd></button>
+          <hr>
+          <button type="button" data-action="beginner">Beginner</button>
+          <button type="button" data-action="intermediate">Intermediate</button>
+          <button type="button" data-action="expert">Expert</button>
+          <button type="button" data-action="custom">Custom…</button>
+          <hr>
+          <button type="button" data-action="best">Best Times…</button>
+        </div>
+      </div>
+      <div class="menu">
+        <button class="menu-btn" type="button">Options</button>
+        <div class="dropdown">
+          <button type="button" data-action="marks" id="opt-marks">Question marks</button>
+          <button type="button" data-action="sound" id="opt-sound">Sound</button>
+        </div>
+      </div>
+      <div class="menu">
+        <button class="menu-btn" type="button">Help</button>
+        <div class="dropdown">
+          <button type="button" data-action="help">How to play…</button>
+        </div>
+      </div>
+    </nav>
+
+    <section class="panel" aria-label="Game status">
+      <div class="led" id="mines" title="Mines left">000</div>
+      <button class="face" id="face" type="button" title="New game (F2)" aria-label="New game">🙂</button>
+      <div class="led" id="timer" title="Time (seconds)">000</div>
+    </section>
+
+    <section class="powers" aria-label="Lucky Tile power-ups">
+      <span class="powers-label">✨ Lucky Tiles:</span>
+      <span class="power passive" id="pow-shield" title="Shield: automatically defuses the next mine you hit">🛡️ <b>0</b></span>
+      <button class="power" id="pow-sonar" type="button" title="Sonar: opens a random safe tile" disabled>📡 <b>0</b></button>
+      <button class="power" id="pow-magnet" type="button" title="Magnet: flags a random mine" disabled>🧲 <b>0</b></button>
+    </section>
+
+    <div class="board-wrap" id="board-wrap">
+      <div class="board" id="board" role="grid" aria-label="Minefield"></div>
+    </div>
+
+    <div class="status" id="status" role="status"></div>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <dialog id="custom-dlg">
+    <form id="custom-form" class="dialog">
+      <div class="dlg-title">Custom Field</div>
+      <div class="dlg-body">
+        <label>Width <input id="c-cols" type="number" min="8" max="30" required></label>
+        <label>Height <input id="c-rows" type="number" min="8" max="24" required></label>
+        <label>Mines <input id="c-mines" type="number" min="10" max="667" required></label>
+        <div class="dlg-actions">
+          <button type="submit" class="primary">OK</button>
+          <button type="button" id="c-cancel">Cancel</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="best-dlg">
+    <div class="dialog">
+      <div class="dlg-title">Fastest Times</div>
+      <div class="dlg-body">
+        <table class="best-table"><tbody id="best-table"></tbody></table>
+        <div class="dlg-actions">
+          <button type="button" id="best-reset">Reset</button>
+          <button type="button" id="best-close" class="primary">OK</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="help-dlg">
+    <div class="dialog">
+      <div class="dlg-title">How to Play</div>
+      <div class="dlg-body help">
+        <p><b>Goal:</b> open every tile that doesn't hide a mine.</p>
+        <ul>
+          <li><b>Click / tap</b> a tile to open it. Numbers count the mines next to it.</li>
+          <li><b>Right-click</b> (or <b>long-press</b> on touch) to flag a tile. With Question marks on, flagging again adds a “?”.</li>
+          <li><b>Click a number</b> whose flags match it (or press both mouse buttons, or middle-click) to open its neighbours.</li>
+          <li><b>F2</b> or the 🙂 face starts a new game.</li>
+        </ul>
+        <p><b>✨ Lucky Tiles:</b> about 1 in 70 safe tiles hides a surprise. They look like any other tile until you open one. You get a random power-up:</p>
+        <ul>
+          <li>🛡️ <b>Shield</b> — the next mine you hit is defused instead of exploding.</li>
+          <li>📡 <b>Sonar</b> — click to open a random safe tile.</li>
+          <li>🧲 <b>Magnet</b> — click to flag a random mine.</li>
+        </ul>
+        <div class="dlg-actions"><button type="button" id="help-close" class="primary">OK</button></div>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="js/board.js"></script>
+  <script src="js/sound.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
