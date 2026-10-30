@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>2025's coding-agent tests, rerun on Haiku 5.5 and GPT-6.1 Terra</title>
-<meta name="description" content="Coding-agent tests from 2025 (GPT-5, Claude Opus 4.5, Gemini), rerun with the same prompts on Claude Haiku 5.5 and GPT-6.1 Terra in October 2026.">
+<title>GPT-5-era agent tasks, rerun on Haiku 5.5 and GPT-6.1 Terra</title>
+<meta name="description" content="A parser port and two benchmark tasks that GPT-5-family models did as coding agents, rerun with the same prompts and tests on Claude Haiku 5.5 and GPT-6.1 Terra in October 2026.">
 <link rel="icon" href="../goldfish.png">
 <style>
   :root { --bg: #0b0d10; --fg: #e8eaed; --dim: #9aa0a6; --line: #262a31; --accent: #f08a3e; }
@@ -39,54 +39,8 @@
 <body>
 <main>
 <a class="back" href="../">hype rerun</a>
-<h1>2025's coding-agent tests, rerun on Haiku 5.5 and GPT-6.1 Terra</h1>
-<p class="dim">October 2026. Five jobs that 2025's top models (GPT-5-family, Claude Opus 4.5, Gemini) did as coding agents, given again with the same prompts to two of today's cheap models. Two are games you can see; three are graded by tests.</p>
-
-<h2>A Counter-Strike-style shooter in Three.js</h2>
-<video src="cs-compare.mp4" autoplay muted loop playsinline controls></video>
-<p>In November 2025 a developer at a database startup gave GPT-5.1-Codex-Max, Claude Opus 4.5 and Gemini 3 Pro the same series of prompts to build a browser shooter, then made it multiplayer. The post reached 287 points on Hacker News. I gave Haiku 5.5 and GPT-6.1 Terra the first four prompts, word for word and in order, starting from the same empty Next.js template the originals started from.</p>
-<p>The four prompts: a first-person map with a crosshair and enemies you can shoot; enemies that look like people; a gun in view that kicks back when you shoot; chiptune shot sounds and death animations. The clip shows stage 3: first Haiku, then Terra, each next to Opus 4.5, which the post judged best of the three on visuals. The Opus clip is from the post; the new games are played by a script.</p>
-<div class="scroll"><table>
-  <tr><th>Model</th><th>Stages 1–4</th><th>Cost</th><th>Human fixes</th></tr>
-  <tr><td><span class="m gpt5">GPT-5.1-Codex-Max, Opus 4.5, Gemini 3 Pro</span> (Nov 2025)</td><td>about 2 h for the whole comparison, all seven stages (author's comment)</td><td>not published</td><td>errors pasted back when they came up</td></tr>
-  <tr><td><span class="m haiku">Haiku 5.5</span> high</td><td class="num">8 min</td><td class="num">$0.18</td><td>none</td></tr>
-  <tr class="terra"><td><span class="m terra">GPT&#8209;6.1 Terra</span> high</td><td class="num">4.5 min</td><td class="num">$0.14</td><td>none</td></tr>
-</table></div>
-<ul>
-  <li>Terra built a detailed map from the first prompt, with a skyline, cover and a rifle in view before it was asked for one. It ran a build check only after the first stage; the later stages still built and ran.</li>
-  <li>Haiku made a separate plain HTML page that loads Three.js from a CDN, instead of using the Next.js app. Its enemies are small and far away, which makes them hard to hit. It said at the end that it had not seen the game in a browser.</li>
-  <li>The last three prompts make the game multiplayer with InstantDB. Instant stopped taking new sign-ups in 2026, so I stopped after stage 4.</li>
-  <li>My first Haiku attempt ran without a sandbox. It installed a headless browser on its own to test the game, so I stopped it and reran both models in a sandbox that only lets them write in their own folder. A later rerun was cut off when my computer shut down, so the Haiku numbers above are from a third, complete run.</li>
-</ul>
-<div class="runs">
-  <span>Play each stage (click to start, WASD to move, mouse to aim and shoot):</span>
-  <a href="counterstrike/haiku/stage-1/">Haiku 1</a> <a href="counterstrike/haiku/stage-2/">2</a> <a href="counterstrike/haiku/stage-3/">3</a> <a href="counterstrike/haiku/stage-4/">4</a>
-  <a href="counterstrike/terra/stage-1/">Terra 1</a> <a href="counterstrike/terra/stage-2/">2</a> <a href="counterstrike/terra/stage-3/">3</a> <a href="counterstrike/terra/stage-4/">4</a>
-</div>
-<div class="runs">
-  <a href="https://www.instantdb.com/essays/agents_building_counterstrike">Original post with all prompts</a>
-  <a href="https://news.ycombinator.com/item?id=46080835">Hacker News discussion</a>
-</div>
-
-<h2>Minesweeper, judged blind</h2>
-<video src="ms-compare.mp4" autoplay muted loop playsinline controls></video>
-<p>In December 2025 Ars Technica gave four coding agents one short prompt: a full-featured web Minesweeper with sound effects that replicates the Windows game, adds a surprise feature, and works on touchscreens. Their games editor scored the results without knowing which agent made which: Codex (GPT-5) 9/10, Claude Code with Opus 4.5 7/10, Mistral Vibe 4/10, and Gemini CLI did not produce a working game. I gave the same prompt to Haiku 5.5 and Terra.</p>
-<p>The clip shows the Ars winner, Codex, next to Haiku and then Terra, cropped to the board. Each board gets the same two clicks: the first square, which Windows Minesweeper never makes a mine, and one flag.</p>
-<div class="scroll"><table>
-  <tr><th>Model</th><th>Time</th><th>Cost</th><th>Chording</th><th>"?" marks</th><th>Surprise feature</th></tr>
-  <tr><td><span class="m gpt5">Codex (GPT-5)</span> (Dec 2025)</td><td>about twice Claude's</td><td>not published</td><td>yes</td><td>yes</td><td>Lucky Sweep: reveal a safe tile</td></tr>
-  <tr><td><span class="m gpt5">Claude Code (Opus 4.5)</span> (Dec 2025)</td><td>under 5 min</td><td>not published</td><td>no</td><td>not checked</td><td>Power Mode power-ups</td></tr>
-  <tr><td><span class="m haiku">Haiku 5.5</span> high</td><td class="num">6 min</td><td class="num">$0.07</td><td>yes</td><td>yes</td><td>Lucky Tiles: shields and other power-ups</td></tr>
-  <tr class="terra"><td><span class="m terra">GPT&#8209;6.1 Terra</span> high</td><td class="num">95 s</td><td class="num">$0.07</td><td>yes</td><td>no</td><td>Lucky Reveal: every 25 safe squares earns one safe reveal</td></tr>
-</table></div>
-<p class="dim">Chording, opening all neighbours of a number whose mines are flagged, is the feature the Ars judge cared about most. I checked the new games' features in their code; I did not score the new games out of 10, since the original scores came from a blind human judge. The Gemini game's published page loads a script the server can't find, so it shows a board frame with no tiles.</p>
-<div class="runs">
-  <a href="https://arstechnica.com/ai/2025/12/the-ars-technica-ai-coding-agent-test-minesweeper-edition/">Ars Technica article</a>
-  <a href="https://www.bxfoundry.com/minesweeper/2/">Codex original, playable</a>
-  <a href="https://www.bxfoundry.com/minesweeper/3/">Opus 4.5 original, playable</a>
-  <a href="minesweeper/haiku/">Haiku version, playable</a>
-  <a href="minesweeper/terra/">Terra version, playable</a>
-</div>
+<h1>GPT-5-era agent tasks, rerun on Haiku 5.5 and GPT-6.1 Terra</h1>
+<p class="dim">October 2026. Three jobs that GPT-5-family models did as coding agents, given again with the same prompts and graded with the same tests. The games from the same series are on <a href="games/">their own page</a>.</p>
 
 <h2>Porting an HTML parser from Python to JavaScript</h2>
 <img src="justhtml-time.png" alt="Bar chart. GPT-5.2 in December 2025: about 4 hours, $29.41. Haiku 5.5 high: 1 hour 11 minutes, $7.45, no extra prompts. GPT-6.1 Terra high: 1 hour 34 minutes, $14.21, 44 extra Keep going prompts.">
@@ -155,14 +109,14 @@
 <ul>
   <li>Haiku ran in Claude Code (<code>claude-haiku-5-5</code>, effort high). Terra ran in Codex CLI (<code>gpt-6.1-terra</code>, reasoning high). Neither used a stronger model as a helper.</li>
   <li>The original runs used different agent setups: Codex CLI in 2025 for the parser, and each benchmark's own harness for the smaller tasks. So the tools around the model differ too.</li>
-  <li>One run per model for the two games and the parser, three per model for the smaller tasks. That's enough to see what happened, not to rank models.</li>
+  <li>One run per model for the parser, three per model for the smaller tasks. That's enough to see what happened, not to rank models.</li>
   <li>All three tasks, and the fixes for the smaller ones, have been public for months, so the new models may have seen them during training. The fixes they wrote differed from try to try, so they don't look copied.</li>
   <li>Costs are the tokens each run used at the provider's API list price ($0.10 input and $0.50 output per million tokens for Haiku 5.5, $1.00 and $5.00 for Terra, with higher rates for very large requests). I ran them on subscriptions, so nothing was charged. The older costs are from the original post and the benchmark sites.</li>
-  <li>The parser runs ran inside Docker containers that could only see their own folder. For the smaller tasks, every command the model ran went into the task's own container. For the games, Terra ran in the Codex sandbox and Haiku in the Claude Code sandbox (for Minesweeper, Haiku could only run a short list of commands instead). Neither had a browser tool or web search.</li>
+  <li>The parser runs ran inside Docker containers that could only see their own folder. For the smaller tasks, every command the model ran went into the task's own container.</li>
 </ul>
 
 <footer>
-  <p>Original work belongs to its authors: Ars Technica (Minesweeper test), Instant (Counter-Strike post; the Opus 4.5 stage 3 clip is from it, with credit), Simon Willison (JustHTML port), Emil Stenström (JustHTML), Quesma (CompileBench, OTelBench). Other original results are linked, not copied.</p>
+  <p>Original work belongs to its authors: Simon Willison (JustHTML port), Emil Stenström (JustHTML), Quesma (CompileBench, OTelBench). Results here are linked, not copied.</p>
   <p>By <a href="https://x.com/neuralnonsense_">@neuralnonsense_</a></p>
 </footer>
 </main>
