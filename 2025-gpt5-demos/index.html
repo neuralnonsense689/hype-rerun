@@ -23,6 +23,10 @@
   th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
   th { color: var(--dim); font-weight: 600; }
   td.num { font-variant-numeric: tabular-nums; }
+  .m::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 7px; background: var(--c); }
+  .haiku { --c: #f08a3e; }
+  .terra { --c: #5ec4b6; }
+  tr.terra td { background: rgba(94, 196, 182, 0.16); }
   ul { padding-left: 20px; }
   footer { margin-top: 56px; font-size: 14px; color: var(--dim); }
 </style>
@@ -96,18 +100,18 @@
 <h2 id="runs">Runs</h2>
 <table>
   <tr><th>Demo</th><th>Model</th><th>Effort</th><th>Cost</th><th>Time</th></tr>
-  <tr><td>Aquarium</td><td>Haiku 5.5</td><td>high</td><td class="num">$0.11</td><td class="num">21 min</td></tr>
-  <tr><td>Aquarium</td><td>Haiku 5.5</td><td>xhigh</td><td class="num">$0.54</td><td class="num">13 min</td></tr>
-  <tr><td>Aquarium</td><td>GPT-6.1 Terra</td><td>high</td><td class="num">$0.10</td><td class="num">3 min</td></tr>
-  <tr><td>Octopus</td><td>Haiku 5.5</td><td>high</td><td class="num">$0.07</td><td class="num">6 min</td></tr>
-  <tr><td>Octopus</td><td>Haiku 5.5</td><td>xhigh</td><td class="num">$0.17</td><td class="num">8 min</td></tr>
-  <tr><td>Octopus, browser check</td><td>Haiku 5.5</td><td>xhigh</td><td class="num">$0.01</td><td class="num">36 s</td></tr>
-  <tr><td>Octopus</td><td>GPT-6.1 Terra</td><td>high</td><td class="num">$0.05</td><td class="num">79 s</td></tr>
-  <tr><td>Solar system</td><td>Haiku 5.5</td><td>high</td><td class="num">$0.04</td><td class="num">3 min</td></tr>
-  <tr><td>Solar system</td><td>Haiku 5.5</td><td>xhigh</td><td class="num">$0.08</td><td class="num">6 min</td></tr>
-  <tr><td>Solar system</td><td>GPT-6.1 Terra</td><td>high</td><td class="num">$0.04</td><td class="num">65 s</td></tr>
-  <tr><td colspan="3"><strong>Haiku 5.5 total (7 runs)</strong></td><td class="num"><strong>$1.01</strong></td><td></td></tr>
-  <tr><td colspan="3"><strong>GPT-6.1 Terra total (3 runs)</strong></td><td class="num"><strong>$0.19</strong></td><td></td></tr>
+  <tr><td>Aquarium</td><td><span class="m haiku">Haiku 5.5</span></td><td>high</td><td class="num">$0.11</td><td class="num">21 min</td></tr>
+  <tr><td>Aquarium</td><td><span class="m haiku">Haiku 5.5</span></td><td>xhigh</td><td class="num">$0.54</td><td class="num">13 min</td></tr>
+  <tr class="terra"><td>Aquarium</td><td><span class="m terra">GPT&#8209;6.1 Terra</span></td><td>high</td><td class="num">$0.10</td><td class="num">3 min</td></tr>
+  <tr><td>Octopus</td><td><span class="m haiku">Haiku 5.5</span></td><td>high</td><td class="num">$0.07</td><td class="num">6 min</td></tr>
+  <tr><td>Octopus</td><td><span class="m haiku">Haiku 5.5</span></td><td>xhigh</td><td class="num">$0.17</td><td class="num">8 min</td></tr>
+  <tr><td>Octopus, browser check</td><td><span class="m haiku">Haiku 5.5</span></td><td>xhigh</td><td class="num">$0.01</td><td class="num">36 s</td></tr>
+  <tr class="terra"><td>Octopus</td><td><span class="m terra">GPT&#8209;6.1 Terra</span></td><td>high</td><td class="num">$0.05</td><td class="num">79 s</td></tr>
+  <tr><td>Solar system</td><td><span class="m haiku">Haiku 5.5</span></td><td>high</td><td class="num">$0.04</td><td class="num">3 min</td></tr>
+  <tr><td>Solar system</td><td><span class="m haiku">Haiku 5.5</span></td><td>xhigh</td><td class="num">$0.08</td><td class="num">6 min</td></tr>
+  <tr class="terra"><td>Solar system</td><td><span class="m terra">GPT&#8209;6.1 Terra</span></td><td>high</td><td class="num">$0.04</td><td class="num">65 s</td></tr>
+  <tr><td colspan="3"><strong><span class="m haiku">Haiku 5.5</span> total (7 runs)</strong></td><td class="num"><strong>$1.01</strong></td><td></td></tr>
+  <tr class="terra"><td colspan="3"><strong><span class="m terra">GPT&#8209;6.1 Terra</span> total (3 runs)</strong></td><td class="num"><strong>$0.19</strong></td><td></td></tr>
 </table>
 
 <h2>How this was run</h2>
