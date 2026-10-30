@@ -76,20 +76,13 @@
 <video src="clips/terra-octopus.mp4" autoplay muted loop playsinline controls></video>
 <p>Terra's octopus has a moving water surface but no sea floor, rocks or seaweed, and it drifts near the middle instead of swimming across. Haiku on high added more of the scene. Terra wrote a comment in the file saying Octocode MCP wasn't available, then went ahead without it, as Haiku did.</p>
 <video src="clips/terra-solar.mp4" autoplay muted loop playsinline controls></video>
-<p>The solar system is where Terra looks best: a planet list, an info card for the selected planet, and speed and zoom controls.</p>
+<p>Terra's solar system has a planet list, an info card for the selected planet, and speed and zoom controls.</p>
 <div class="runs">
   <a href="terra/aquarium-high/">Terra high aquarium, live</a>
   <a href="terra/octopus-high/">Terra high octopus, live</a>
   <a href="terra/solar-high/">Terra high solar system, live</a>
 </div>
-<table>
-  <tr><th>Demo</th><th>Haiku 5.5 high</th><th>GPT-6.1 Terra high</th></tr>
-  <tr><td>Aquarium</td><td class="num">$0.11 · 21 min</td><td class="num">$0.10 · 3 min</td></tr>
-  <tr><td>Octopus</td><td class="num">$0.07 · 6 min</td><td class="num">$0.05 · 79 s</td></tr>
-  <tr><td>Solar system</td><td class="num">$0.04 · 3 min</td><td class="num">$0.04 · 65 s</td></tr>
-  <tr><td><strong>Total</strong></td><td class="num"><strong>$0.21</strong></td><td class="num"><strong>$0.19</strong></td></tr>
-</table>
-<p>The costs are close even though Terra costs ten times as much per token, because Terra wrote far fewer tokens. On the octopus it produced 7,702 output tokens, while Haiku produced 88,716, most of them thinking. Times are wall-clock times on each company's service, so treat them as rough.</p>
+<p>Costs and times for every run are in the <a href="#runs">table below</a>. Terra's three runs came to $0.19, and Haiku's three high runs to $0.21. The costs are close even though Terra costs ten times as much per token, because Terra wrote far fewer tokens. On the octopus it produced 7,702 output tokens, while Haiku produced 88,716, most of them thinking. Times are wall-clock times on each company's service, so treat them as rough.</p>
 <p>How the Terra runs differ from the Haiku runs:</p>
 <ul>
   <li>Terra ran in the Codex CLI (0.165.0, <code>codex exec</code>), which always gives the model a shell. So on the octopus and solar system, Terra could run commands. It wrote the files from the shell and ran a JavaScript syntax check with Node. Haiku could only read and write files there. On the aquarium, both could run commands.</li>
@@ -100,17 +93,21 @@
   <li>The Terra aquarium was built as static files for hosting, the same way as Haiku's.</li>
 </ul>
 
-<h2>All Haiku runs</h2>
+<h2 id="runs">Runs</h2>
 <table>
-  <tr><th>Demo</th><th>Effort</th><th>Cost</th><th>Time</th></tr>
-  <tr><td>Aquarium</td><td>high</td><td class="num">$0.11</td><td class="num">21 min</td></tr>
-  <tr><td>Aquarium</td><td>xhigh</td><td class="num">$0.54</td><td class="num">13 min</td></tr>
-  <tr><td>Octopus</td><td>high</td><td class="num">$0.07</td><td class="num">6 min</td></tr>
-  <tr><td>Octopus</td><td>xhigh</td><td class="num">$0.17</td><td class="num">8 min</td></tr>
-  <tr><td>Octopus, browser check</td><td>xhigh</td><td class="num">$0.01</td><td class="num">36 s</td></tr>
-  <tr><td>Solar system</td><td>high</td><td class="num">$0.04</td><td class="num">3 min</td></tr>
-  <tr><td>Solar system</td><td>xhigh</td><td class="num">$0.08</td><td class="num">6 min</td></tr>
-  <tr><td colspan="2"><strong>Total</strong></td><td class="num"><strong>$1.01</strong></td><td></td></tr>
+  <tr><th>Demo</th><th>Model</th><th>Effort</th><th>Cost</th><th>Time</th></tr>
+  <tr><td>Aquarium</td><td>Haiku 5.5</td><td>high</td><td class="num">$0.11</td><td class="num">21 min</td></tr>
+  <tr><td>Aquarium</td><td>Haiku 5.5</td><td>xhigh</td><td class="num">$0.54</td><td class="num">13 min</td></tr>
+  <tr><td>Aquarium</td><td>GPT-6.1 Terra</td><td>high</td><td class="num">$0.10</td><td class="num">3 min</td></tr>
+  <tr><td>Octopus</td><td>Haiku 5.5</td><td>high</td><td class="num">$0.07</td><td class="num">6 min</td></tr>
+  <tr><td>Octopus</td><td>Haiku 5.5</td><td>xhigh</td><td class="num">$0.17</td><td class="num">8 min</td></tr>
+  <tr><td>Octopus, browser check</td><td>Haiku 5.5</td><td>xhigh</td><td class="num">$0.01</td><td class="num">36 s</td></tr>
+  <tr><td>Octopus</td><td>GPT-6.1 Terra</td><td>high</td><td class="num">$0.05</td><td class="num">79 s</td></tr>
+  <tr><td>Solar system</td><td>Haiku 5.5</td><td>high</td><td class="num">$0.04</td><td class="num">3 min</td></tr>
+  <tr><td>Solar system</td><td>Haiku 5.5</td><td>xhigh</td><td class="num">$0.08</td><td class="num">6 min</td></tr>
+  <tr><td>Solar system</td><td>GPT-6.1 Terra</td><td>high</td><td class="num">$0.04</td><td class="num">65 s</td></tr>
+  <tr><td colspan="3"><strong>Haiku 5.5 total (7 runs)</strong></td><td class="num"><strong>$1.01</strong></td><td></td></tr>
+  <tr><td colspan="3"><strong>GPT-6.1 Terra total (3 runs)</strong></td><td class="num"><strong>$0.19</strong></td><td></td></tr>
 </table>
 
 <h2>How this was run</h2>
