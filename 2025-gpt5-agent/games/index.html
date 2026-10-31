@@ -49,14 +49,14 @@
 <div class="scroll"><table>
   <tr><th>Model</th><th>Stages 1–4</th><th>Cost</th><th>Human fixes</th></tr>
   <tr><td><span class="m gpt5">GPT-5.1-Codex-Max, Opus 4.5, Gemini 3 Pro</span> (Nov 2025)</td><td>about 2 h for the whole comparison, all seven stages (author's comment)</td><td>not published</td><td>errors pasted back when they came up</td></tr>
-  <tr><td><span class="m haiku">Haiku 5.5</span> high</td><td class="num">8 min</td><td class="num">$0.18</td><td>none</td></tr>
+  <tr><td><span class="m haiku">Haiku 5.5</span> high</td><td class="num">11 min</td><td class="num">$0.44</td><td>none</td></tr>
   <tr class="terra"><td><span class="m terra">GPT&#8209;6.1 Terra</span> high</td><td class="num">4.5 min</td><td class="num">$0.14</td><td>none</td></tr>
 </table></div>
 <ul>
   <li>Terra built a detailed map from the first prompt, with a skyline, cover and a rifle in view before it was asked for one. It ran a build check only after the first stage; the later stages still built and ran.</li>
-  <li>Haiku made a separate plain HTML page that loads Three.js from a CDN, instead of using the Next.js app. Its enemies are small and far away, which makes them hard to hit. It said at the end that it had not seen the game in a browser.</li>
+  <li>Haiku made a separate Vite project next to the Next.js app. It checked the game logic in Node, and said after each stage that it could not see the game run in its sandbox.</li>
   <li>The last three prompts make the game multiplayer with InstantDB. Instant stopped taking new sign-ups in 2026, so I stopped after stage 4.</li>
-  <li>My first Haiku attempt ran without a sandbox. It installed a headless browser on its own to test the game, so I stopped it and reran both models in a sandbox that only lets them write in their own folder. A later rerun was cut off when my computer shut down, so the Haiku numbers above are from a third, complete run.</li>
+  <li>My first Haiku attempt ran without a sandbox. It installed a headless browser on its own to test the game, so I stopped it and reran both models in a sandbox that only lets them write in their own folder. A later rerun was cut off when my computer shut down. A third, complete run ($0.18) turned out to have my personal Claude Code rules file loaded, so the Haiku numbers above are from a fourth run without it.</li>
 </ul>
 <div class="runs">
   <span>Play each stage (click to start, WASD to move, mouse to aim and shoot):</span>
@@ -76,7 +76,7 @@
   <tr><th>Model</th><th>Time</th><th>Cost</th><th>Chording</th><th>"?" marks</th><th>Surprise feature</th></tr>
   <tr><td><span class="m gpt5">Codex (GPT-5)</span> (Dec 2025)</td><td>about twice Claude's</td><td>not published</td><td>yes</td><td>yes</td><td>Lucky Sweep: reveal a safe tile</td></tr>
   <tr><td><span class="m gpt5">Claude Code (Opus 4.5)</span> (Dec 2025)</td><td>under 5 min</td><td>not published</td><td>no</td><td>not checked</td><td>Power Mode power-ups</td></tr>
-  <tr><td><span class="m haiku">Haiku 5.5</span> high</td><td class="num">6 min</td><td class="num">$0.07</td><td>yes</td><td>yes</td><td>Lucky Tiles: shields and other power-ups</td></tr>
+  <tr><td><span class="m haiku">Haiku 5.5</span> high</td><td class="num">9 min</td><td class="num">$0.34</td><td>yes</td><td>yes</td><td>Lucky Tokens: a scanner, a shield and a safe reveal, earned every 10 safe squares</td></tr>
   <tr class="terra"><td><span class="m terra">GPT&#8209;6.1 Terra</span> high</td><td class="num">95 s</td><td class="num">$0.07</td><td>yes</td><td>no</td><td>Lucky Reveal: every 25 safe squares earns one safe reveal</td></tr>
 </table></div>
 <p class="dim">Chording, opening all neighbours of a number whose mines are flagged, is the feature the Ars judge cared about most. I checked the new games' features in their code; I did not score the new games out of 10, since the original scores came from a blind human judge. The Gemini game's published page loads a script the server can't find, so it shows a board frame with no tiles.</p>
@@ -94,7 +94,8 @@
   <li>The original agents ran in their own terminal apps, with the tools around each model set by its vendor. So the tools differ, not only the models.</li>
   <li>One run per model. That's enough to see what happened, not to rank models.</li>
   <li>Both tests have been public for months, so the new models may have seen them during training.</li>
-  <li>Terra ran in the Codex sandbox. For Counter-Strike, Haiku ran in the Claude Code sandbox; for Minesweeper, it could only run a short list of commands. Neither had a browser tool or web search.</li>
+  <li>Terra ran in the Codex sandbox and Haiku in the Claude Code sandbox. Neither had a browser tool or web search.</li>
+  <li>My first Haiku Minesweeper run ($0.07, 6 minutes) also had my personal Claude Code rules file loaded, so I reran it without that file. The table shows the rerun.</li>
   <li>Costs are the tokens each run used at the provider's API list price. I ran them on subscriptions, so nothing was charged. The original posts don't give costs, so there's no price comparison.</li>
 </ul>
 

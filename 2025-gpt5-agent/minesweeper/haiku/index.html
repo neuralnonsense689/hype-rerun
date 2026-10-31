@@ -2,121 +2,140 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#008080">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#c0c0c0">
   <title>Minesweeper</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='9' r='4.5' fill='%23111'/%3E%3Cpath d='M8 1v3M2 9h2M12 9h2M3.8 4.8l1.6 1.6M12.2 4.8l-1.6 1.6' stroke='%23111' stroke-width='1.4'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <main class="window">
+  <main class="window" id="window">
     <header class="titlebar">
-      <span aria-hidden="true">💣</span>
+      <span class="title-icon" aria-hidden="true">💣</span>
       <span>Minesweeper</span>
     </header>
 
-    <nav class="menubar" id="menubar">
-      <div class="menu">
-        <button class="menu-btn" type="button">Game</button>
-        <div class="dropdown">
-          <button type="button" data-action="new">New <kbd>F2</kbd></button>
+    <nav class="menubar" id="menubar" aria-label="Game menu">
+      <div class="menu" data-menu="game">
+        <button class="menu-title" type="button" aria-haspopup="true">Game</button>
+        <div class="dropdown" role="menu">
+          <button type="button" role="menuitem" data-action="new">New <kbd>F2</kbd></button>
           <hr>
-          <button type="button" data-action="beginner">Beginner</button>
-          <button type="button" data-action="intermediate">Intermediate</button>
-          <button type="button" data-action="expert">Expert</button>
-          <button type="button" data-action="custom">Custom…</button>
+          <button type="button" role="menuitem" data-action="beginner">Beginner</button>
+          <button type="button" role="menuitem" data-action="intermediate">Intermediate</button>
+          <button type="button" role="menuitem" data-action="expert">Expert</button>
+          <button type="button" role="menuitem" data-action="custom">Custom…</button>
           <hr>
-          <button type="button" data-action="best">Best Times…</button>
+          <button type="button" role="menuitem" data-action="best">Best Times…</button>
         </div>
       </div>
-      <div class="menu">
-        <button class="menu-btn" type="button">Options</button>
-        <div class="dropdown">
-          <button type="button" data-action="marks" id="opt-marks">Question marks</button>
-          <button type="button" data-action="sound" id="opt-sound">Sound</button>
+      <div class="menu" data-menu="options">
+        <button class="menu-title" type="button" aria-haspopup="true">Options</button>
+        <div class="dropdown" role="menu">
+          <button type="button" role="menuitem" data-action="toggle-marks"><span class="check" id="check-marks"></span> Marks (?)</button>
+          <button type="button" role="menuitem" data-action="toggle-sound"><span class="check" id="check-sound"></span> Sound effects</button>
         </div>
       </div>
-      <div class="menu">
-        <button class="menu-btn" type="button">Help</button>
-        <div class="dropdown">
-          <button type="button" data-action="help">How to play…</button>
+      <div class="menu" data-menu="help">
+        <button class="menu-title" type="button" aria-haspopup="true">Help</button>
+        <div class="dropdown" role="menu">
+          <button type="button" role="menuitem" data-action="help">How to play</button>
+          <button type="button" role="menuitem" data-action="about">About Minesweeper</button>
         </div>
       </div>
     </nav>
 
     <section class="panel" aria-label="Game status">
-      <div class="led" id="mines" title="Mines left">000</div>
-      <button class="face" id="face" type="button" title="New game (F2)" aria-label="New game">🙂</button>
-      <div class="led" id="timer" title="Time (seconds)">000</div>
+      <div class="lcd" id="mines-left" title="Mines left" aria-label="Mines left">010</div>
+      <button class="face" id="face" type="button" aria-label="New game"></button>
+      <div class="lcd" id="timer" title="Time" aria-label="Time">000</div>
     </section>
 
-    <section class="powers" aria-label="Lucky Tile power-ups">
-      <span class="powers-label">✨ Lucky Tiles:</span>
-      <span class="power passive" id="pow-shield" title="Shield: automatically defuses the next mine you hit">🛡️ <b>0</b></span>
-      <button class="power" id="pow-sonar" type="button" title="Sonar: opens a random safe tile" disabled>📡 <b>0</b></button>
-      <button class="power" id="pow-magnet" type="button" title="Magnet: flags a random mine" disabled>🧲 <b>0</b></button>
+    <section class="powerups" aria-label="Lucky tokens">
+      <div class="powerup-label">
+        <span>🎁 Lucky tokens</span>
+        <small id="token-progress">next in 10</small>
+      </div>
+      <div class="slots" id="slots">
+        <button type="button" class="slot" data-slot="0" aria-label="Token slot 1"></button>
+        <button type="button" class="slot" data-slot="1" aria-label="Token slot 2"></button>
+        <button type="button" class="slot" data-slot="2" aria-label="Token slot 3"></button>
+      </div>
     </section>
 
     <div class="board-wrap" id="board-wrap">
       <div class="board" id="board" role="grid" aria-label="Minefield"></div>
     </div>
 
-    <div class="status" id="status" role="status"></div>
+    <footer class="statusbar" id="status" aria-live="polite">Ready — click any square to start.</footer>
   </main>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <dialog id="custom-dlg">
-    <form id="custom-form" class="dialog">
-      <div class="dlg-title">Custom Field</div>
-      <div class="dlg-body">
-        <label>Width <input id="c-cols" type="number" min="8" max="30" required></label>
-        <label>Height <input id="c-rows" type="number" min="8" max="24" required></label>
-        <label>Mines <input id="c-mines" type="number" min="10" max="667" required></label>
-        <div class="dlg-actions">
-          <button type="submit" class="primary">OK</button>
-          <button type="button" id="c-cancel">Cancel</button>
-        </div>
+  <dialog id="dlg-custom" class="win-dialog">
+    <form method="dialog" id="form-custom">
+      <h2>Custom Field</h2>
+      <label>Height <input type="number" name="rows" min="8" max="24" required></label>
+      <label>Width <input type="number" name="cols" min="8" max="30" required></label>
+      <label>Mines <input type="number" name="mines" min="10" max="667" required></label>
+      <p class="form-error" id="custom-error" role="alert"></p>
+      <div class="dialog-buttons">
+        <button type="submit" value="ok" class="win-btn primary">OK</button>
+        <button type="button" value="cancel" class="win-btn" id="custom-cancel">Cancel</button>
       </div>
     </form>
   </dialog>
 
-  <dialog id="best-dlg">
-    <div class="dialog">
-      <div class="dlg-title">Fastest Times</div>
-      <div class="dlg-body">
-        <table class="best-table"><tbody id="best-table"></tbody></table>
-        <div class="dlg-actions">
-          <button type="button" id="best-reset">Reset</button>
-          <button type="button" id="best-close" class="primary">OK</button>
-        </div>
+  <dialog id="dlg-best" class="win-dialog">
+    <form method="dialog">
+      <h2>Fastest Times</h2>
+      <div id="best-list"></div>
+      <div class="dialog-buttons">
+        <button type="submit" class="win-btn primary">Close</button>
       </div>
-    </div>
+    </form>
   </dialog>
 
-  <dialog id="help-dlg">
-    <div class="dialog">
-      <div class="dlg-title">How to Play</div>
-      <div class="dlg-body help">
-        <p><b>Goal:</b> open every tile that doesn't hide a mine.</p>
-        <ul>
-          <li><b>Click / tap</b> a tile to open it. Numbers count the mines next to it.</li>
-          <li><b>Right-click</b> (or <b>long-press</b> on touch) to flag a tile. With Question marks on, flagging again adds a “?”.</li>
-          <li><b>Click a number</b> whose flags match it (or press both mouse buttons, or middle-click) to open its neighbours.</li>
-          <li><b>F2</b> or the 🙂 face starts a new game.</li>
-        </ul>
-        <p><b>✨ Lucky Tiles:</b> about 1 in 70 safe tiles hides a surprise. They look like any other tile until you open one. You get a random power-up:</p>
-        <ul>
-          <li>🛡️ <b>Shield</b> — the next mine you hit is defused instead of exploding.</li>
-          <li>📡 <b>Sonar</b> — click to open a random safe tile.</li>
-          <li>🧲 <b>Magnet</b> — click to flag a random mine.</li>
-        </ul>
-        <div class="dlg-actions"><button type="button" id="help-close" class="primary">OK</button></div>
+  <dialog id="dlg-name" class="win-dialog">
+    <form method="dialog" id="form-name">
+      <h2>🏆 New fastest time!</h2>
+      <p id="name-message"></p>
+      <label>Your name <input type="text" name="name" maxlength="20" value="Anonymous"></label>
+      <div class="dialog-buttons">
+        <button type="submit" class="win-btn primary">OK</button>
       </div>
-    </div>
+    </form>
   </dialog>
 
-  <script src="js/board.js"></script>
+  <dialog id="dlg-help" class="win-dialog">
+    <form method="dialog">
+      <h2>How to Play</h2>
+      <ul class="help-list">
+        <li><b>Open a square:</b> click / tap it. Numbers show how many mines touch it.</li>
+        <li><b>Flag a mine:</b> right-click, or long-press on a phone.</li>
+        <li><b>Chord:</b> middle-click, or press both mouse buttons, on a number whose flags match it. On a phone, tap a number to chord.</li>
+        <li><b>Win:</b> open every square that is not a mine.</li>
+        <li><b>Lucky tokens 🎁:</b> every 10 safe squares you earn a surprise token, at random: 🔍 <i>Scanner</i> (tap a square to see the mines in its 3×3 area), 🛡️ <i>Shield</i> (blocks the next mine you hit), or ✨ <i>Lucky Reveal</i> (opens a random safe square). Tap a token to use it.</li>
+        <li><b>Shortcuts:</b> F2 new game, Esc cancels a token.</li>
+      </ul>
+      <div class="dialog-buttons">
+        <button type="submit" class="win-btn primary">OK</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-about" class="win-dialog">
+    <form method="dialog">
+      <h2>Minesweeper</h2>
+      <p>A web version of the classic Windows game, with sound effects, mobile touch support, and Lucky tokens.</p>
+      <div class="dialog-buttons">
+        <button type="submit" class="win-btn primary">OK</button>
+      </div>
+    </form>
+  </dialog>
+
   <script src="js/sound.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/game.js"></script>
 </body>
 </html>

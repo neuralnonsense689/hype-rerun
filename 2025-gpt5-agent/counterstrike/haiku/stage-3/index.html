@@ -4,174 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Block Strike</title>
-    <style>
-      html,
-      body {
-        margin: 0;
-        height: 100%;
-        overflow: hidden;
-        background: #000;
-        color: #fff;
-        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-        user-select: none;
-      }
-
-      canvas {
-        display: block;
-      }
-
-      /* Crosshair: four short white ticks with a gap in the middle, plus a dot */
-      #crosshair {
-        position: fixed;
-        left: 50%;
-        top: 50%;
-        width: 0;
-        height: 0;
-        pointer-events: none;
-      }
-
-      #crosshair .tick,
-      #crosshair .dot {
-        position: absolute;
-        background: #fff;
-        box-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
-      }
-
-      #crosshair .top {
-        left: -1px;
-        top: -12px;
-        width: 2px;
-        height: 6px;
-      }
-
-      #crosshair .bottom {
-        left: -1px;
-        top: 6px;
-        width: 2px;
-        height: 6px;
-      }
-
-      #crosshair .left {
-        left: -12px;
-        top: -1px;
-        width: 6px;
-        height: 2px;
-      }
-
-      #crosshair .right {
-        left: 6px;
-        top: -1px;
-        width: 6px;
-        height: 2px;
-      }
-
-      #crosshair .dot {
-        left: -1px;
-        top: -1px;
-        width: 2px;
-        height: 2px;
-      }
-
-      /* Hit marker: a red X that flashes when a shot lands on an enemy */
-      #hitmarker {
-        position: fixed;
-        left: 50%;
-        top: 50%;
-        width: 0;
-        height: 0;
-        pointer-events: none;
-        opacity: 0;
-      }
-
-      #hitmarker.show {
-        opacity: 1;
-      }
-
-      #hitmarker span {
-        position: absolute;
-        left: -1px;
-        top: -9px;
-        width: 2px;
-        height: 18px;
-        background: #ff4d4d;
-        box-shadow: 0 0 3px rgba(0, 0, 0, 0.6);
-      }
-
-      #hitmarker span:first-child {
-        transform: rotate(45deg);
-      }
-
-      #hitmarker span:last-child {
-        transform: rotate(-45deg);
-      }
-
-      #kills {
-        position: fixed;
-        top: 16px;
-        left: 20px;
-        padding: 8px 14px;
-        background: rgba(0, 0, 0, 0.45);
-        border-left: 4px solid #ff6b4a;
-        font-size: 20px;
-        font-weight: 700;
-        letter-spacing: 0.5px;
-        pointer-events: none;
-      }
-
-      #help {
-        position: fixed;
-        bottom: 16px;
-        left: 50%;
-        transform: translateX(-50%);
-        padding: 6px 12px;
-        background: rgba(0, 0, 0, 0.45);
-        font-size: 13px;
-        opacity: 0.85;
-        white-space: nowrap;
-        pointer-events: none;
-      }
-
-      /* Start / pause screen. Hidden while the mouse is captured by the game. */
-      #overlay {
-        position: fixed;
-        inset: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
-        background: rgba(12, 18, 24, 0.72);
-        cursor: pointer;
-      }
-
-      #overlay.hidden {
-        display: none;
-      }
-
-      #overlay h1 {
-        margin: 0;
-        font-size: 56px;
-        letter-spacing: 2px;
-      }
-
-      #overlay .start {
-        margin-top: 12px;
-        padding: 12px 28px;
-        background: #ff6b4a;
-        font-size: 18px;
-        font-weight: 700;
-      }
-
-      #overlay .controls {
-        margin: 0;
-        opacity: 0.8;
-        font-size: 15px;
-        line-height: 1.6;
-        text-align: center;
-      }
-    </style>
+    <script type="module" crossorigin src="./assets/index-BD2AoFQj.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-Cw0sdJ0T.css">
   </head>
   <body>
+    <div id="app"></div>
+
     <div id="crosshair">
       <span class="tick top"></span>
       <span class="tick bottom"></span>
@@ -179,28 +17,27 @@
       <span class="tick right"></span>
       <span class="dot"></span>
     </div>
-    <div id="hitmarker"><span></span><span></span></div>
-    <div id="kills">Kills: 0</div>
-    <div id="help">WASD move · Mouse look · Hold left click to fire · Esc to pause</div>
 
-    <div id="overlay">
-      <h1>Block Strike</h1>
-      <div class="start">Click to start</div>
-      <p class="controls">
-        W A S D or arrow keys to move<br />
-        Mouse to look around<br />
-        Hold left click to fire. Headshots deal full damage.<br />
-        Esc to pause
-      </p>
+    <div id="hud">
+      <div>KILLS <strong id="kills">0</strong></div>
+      <div>ENEMIES <strong id="alive">0</strong></div>
     </div>
 
-    <script type="importmap">
-      {
-        "imports": {
-          "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js"
-        }
-      }
-    </script>
-    <script type="module" src="./main.js"></script>
+    <div id="help">
+      <kbd>W A S D</kbd> move &nbsp; <kbd>Space</kbd> jump &nbsp; <kbd>Shift</kbd> sprint &nbsp;
+      <kbd>Hold LMB</kbd> fire &nbsp; <kbd>Esc</kbd> pause
+    </div>
+
+    <div id="overlay">
+      <div class="panel">
+        <h1>BLOCK STRIKE</h1>
+        <p>Click to play</p>
+        <ul>
+          <li>Shoot the red enemies until their HP runs out.</li>
+          <li>Downed enemies come back after a few seconds.</li>
+        </ul>
+      </div>
+    </div>
+
   </body>
 </html>
