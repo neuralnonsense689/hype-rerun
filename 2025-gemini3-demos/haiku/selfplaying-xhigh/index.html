@@ -1,356 +1,265 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Self-Playing Breakout</title>
-  <style>
-    html, body {
-      margin: 0;
-      height: 100%;
-      overflow: hidden;
-      background: radial-gradient(circle at 50% 35%, #1e2446 0%, #080a16 75%);
-    }
-    canvas {
-      position: fixed;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      border-radius: 18px;
-      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pong · Self-Play</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: radial-gradient(ellipse at center, #161b27 0%, #080a0f 75%);
+  }
+  canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+</style>
 </head>
 <body>
-  <canvas id="game"></canvas>
-  <script>
-    const W = 400;
-    const H = 600;
-    const PADDLE_W = 84;
-    const PADDLE_H = 10;
-    const PADDLE_Y = H - 36;
-    const BALL_R = 7;
-    const COLS = 10;
-    const BRICK_H = 16;
-    const BRICK_GAP = 5;
-    const BRICK_W = (W - 40 - BRICK_GAP * (COLS - 1)) / COLS;
-    const BRICK_TOP = 96;
-    const START_SPEED = 5;
-    const MAX_SPEED = 8.5;
-    const SERVE_FRAMES = 45;
+<canvas id="game"></canvas>
+<script>
+(() => {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
 
-    const canvas = document.getElementById('game');
-    const ctx = canvas.getContext('2d');
+  // Logical playfield, scaled to fit any window
+  const W = 800, H = 500;
+  const PAD_W = 10, PAD_H = 84, PAD_INSET = 36, PAD_SPEED = 4.8;
+  const BALL_R = 7;
+  const SPEED_START = 5.2, SPEED_UP = 1.06, SPEED_MAX = 11;
+  const WIN_SCORE = 7;
+  const TRAIL = 24;
+  const INK = '#e9edf5';
+  const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
 
-    let phase = 'play';   // 'play' or 'over'
-    let paused = false;
-    let bricks = [];
-    let particles = [];
-    let trail = [];
-    let paddle = { x: W / 2 };
-    let ball = { x: W / 2, y: PADDLE_Y - BALL_R, vx: 0, vy: 0 };
-    let score = 0;
-    let lives = 3;
-    let level = 1;
-    let speed = START_SPEED;
-    let serveTimer = 0;
-    let aimOffset = 0;
-    let aimTimer = 0;
-    let overTimer = 0;
-    let clock = 0;
+  let dpr = 1, scale = 1, ox = 0, oy = 0;
 
-    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  function resize() {
+    dpr = window.devicePixelRatio || 1;
+    const w = window.innerWidth, h = window.innerHeight;
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    scale = Math.min(w / W, h / H) * 0.9;
+    ox = (w - W * scale) / 2;
+    oy = (h - H * scale) / 2;
+  }
 
-    function resize() {
-      const dpr = window.devicePixelRatio || 1;
-      const scale = Math.min(window.innerWidth / W, window.innerHeight / H) * 0.92;
-      canvas.style.width = W * scale + 'px';
-      canvas.style.height = H * scale + 'px';
-      canvas.width = Math.round(W * scale * dpr);
-      canvas.height = Math.round(H * scale * dpr);
+  const randSide = () => (Math.random() < 0.5 ? -1 : 1);
+  const rand = (lo, hi) => lo + Math.random() * (hi - lo);
+
+  const paddles = [
+    { x: PAD_INSET, y: H / 2 - PAD_H / 2, target: H / 2, think: 0, flash: 0, pop: 0, score: 0 },
+    { x: W - PAD_INSET - PAD_W, y: H / 2 - PAD_H / 2, target: H / 2, think: 0, flash: 0, pop: 0, score: 0 },
+  ];
+  const ball = { x: W / 2, y: H / 2, vx: 0, vy: 0, speed: SPEED_START, live: false };
+  const trail = [];
+  let time = 0;
+  let serveTo = randSide();   // side the next serve travels toward
+  let serveAt = 1;            // time of the next serve
+  let winner = -1;
+
+  // Is the ball moving toward paddle i?
+  const incoming = (i) => (i === 0 ? ball.vx < 0 : ball.vx > 0);
+
+  function serve() {
+    ball.x = W / 2;
+    ball.y = rand(140, 360);
+    ball.speed = SPEED_START;
+    const angle = rand(-0.5, 0.5);
+    ball.vx = serveTo * ball.speed * Math.cos(angle);
+    ball.vy = ball.speed * Math.sin(angle);
+    ball.live = true;
+    trail.length = 0;
+  }
+
+  function scorePoint(i) {
+    const p = paddles[i];
+    p.score++;
+    p.pop = 1;
+    ball.live = false;
+    serveTo = i === 0 ? 1 : -1;   // serve back toward the side that conceded
+    serveAt = time + 1;
+    if (p.score >= WIN_SCORE) {
+      winner = i;
+      serveAt = time + 3.5;
     }
+  }
 
-    function buildBricks() {
-      const rows = Math.min(2 + level, 8);
-      bricks = [];
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < COLS; c++) {
-          bricks.push({
-            x: 20 + c * (BRICK_W + BRICK_GAP),
-            y: BRICK_TOP + r * (BRICK_H + BRICK_GAP),
-            hue: 280 - r * 26,
-            alive: true,
-          });
+  // Where will the ball cross paddle i's face? Accounts for wall bounces.
+  function interceptY(i) {
+    const faceX = i === 0 ? PAD_INSET + PAD_W : W - PAD_INSET - PAD_W;
+    const t = (faceX - ball.x) / ball.vx;
+    const lo = BALL_R, range = H - 2 * BALL_R, span = 2 * range;
+    let y = (ball.y + ball.vy * t - lo) % span;
+    if (y < 0) y += span;
+    return lo + (y > range ? span - y : y);
+  }
+
+  // The AI: drift idly while the ball goes away; when it comes back,
+  // react after a short delay and aim with a little error.
+  function think(i, dt) {
+    const p = paddles[i];
+    if (!ball.live || !incoming(i)) {
+      p.target = H / 2 + Math.sin(time * 0.7 + i * 2.3) * 80;
+      p.think = rand(0.15, 0.4);
+      return;
+    }
+    p.think -= dt;
+    if (p.think <= 0) {
+      p.target = interceptY(i) + rand(-0.4, 0.4) * PAD_H;
+      p.think = rand(0.25, 0.45);
+    }
+  }
+
+  function movePaddle(p, step) {
+    const center = p.y + PAD_H / 2;
+    const max = PAD_SPEED * step;
+    const move = Math.max(-max, Math.min(max, p.target - center));
+    p.y = Math.max(0, Math.min(H - PAD_H, p.y + move));
+  }
+
+  function update(dt) {
+    const step = dt * 60;   // physics runs in 60fps frames
+
+    paddles.forEach((p, i) => {
+      think(i, dt);
+      movePaddle(p, step);
+      p.flash = Math.max(0, p.flash - dt * 2.5);
+      p.pop = Math.max(0, p.pop - dt * 2.5);
+    });
+
+    if (!ball.live) {
+      if (time >= serveAt) {
+        if (winner >= 0) {
+          paddles.forEach((p) => (p.score = 0));
+          winner = -1;
+          serveTo = randSide();
         }
-      }
-    }
-
-    function serve() {
-      ball.vx = 0;
-      ball.vy = 0;
-      serveTimer = SERVE_FRAMES;
-      trail = [];
-    }
-
-    function launch() {
-      const angle = (Math.random() - 0.5) * 0.9;
-      ball.vx = speed * Math.sin(angle);
-      ball.vy = -speed * Math.cos(angle);
-    }
-
-    function burst(x, y, hue) {
-      for (let i = 0; i < 12; i++) {
-        const a = Math.random() * Math.PI * 2;
-        const s = 0.6 + Math.random() * 2.4;
-        particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 1, hue });
-      }
-    }
-
-    // Where the ball will cross the paddle line, bouncing off the side walls.
-    function predictX() {
-      if (ball.vy <= 0) return W / 2;
-      const t = (PADDLE_Y - ball.y) / ball.vy;
-      const span = W - 2 * BALL_R;
-      let u = ball.x - BALL_R + ball.vx * t;
-      u = ((u % (2 * span)) + 2 * span) % (2 * span);
-      if (u > span) u = 2 * span - u;
-      return u + BALL_R;
-    }
-
-    function updatePaddle(steps) {
-      // A small random aim offset makes the paddle look human and varies the bounce angles.
-      aimTimer -= steps;
-      if (aimTimer <= 0) {
-        aimTimer = 25 + Math.random() * 35;
-        aimOffset = (Math.random() - 0.5) * PADDLE_W * 0.7;
-      }
-      const maxMove = 6.5 * steps;
-      const target = clamp(predictX() + aimOffset, PADDLE_W / 2, W - PADDLE_W / 2);
-      paddle.x += clamp(target - paddle.x, -maxMove, maxMove);
-    }
-
-    function updateParticles(steps) {
-      for (const p of particles) {
-        p.x += p.vx * steps;
-        p.y += p.vy * steps;
-        p.vy += 0.04 * steps;
-        p.life -= 0.025 * steps;
-      }
-      particles = particles.filter(p => p.life > 0);
-    }
-
-    function update(steps) {
-      if (phase === 'over') {
-        overTimer -= steps;
-        if (overTimer <= 0) reset();
-        return;
-      }
-
-      updatePaddle(steps);
-      updateParticles(steps);
-
-      if (serveTimer > 0) {
-        serveTimer -= steps;
-        ball.x = paddle.x;
-        ball.y = PADDLE_Y - BALL_R - 1;
-        if (serveTimer <= 0) launch();
-        return;
-      }
-
-      const prevX = ball.x;
-      const prevY = ball.y;
-      ball.x += ball.vx * steps;
-      ball.y += ball.vy * steps;
-
-      // Side walls and ceiling
-      if (ball.x - BALL_R < 0) { ball.x = BALL_R; ball.vx = Math.abs(ball.vx); }
-      if (ball.x + BALL_R > W) { ball.x = W - BALL_R; ball.vx = -Math.abs(ball.vx); }
-      if (ball.y - BALL_R < 0) { ball.y = BALL_R; ball.vy = Math.abs(ball.vy); }
-
-      // Paddle: the bounce angle depends on where the ball hits it
-      const onPaddleX = Math.abs(ball.x - paddle.x) <= PADDLE_W / 2 + BALL_R * 0.5;
-      if (ball.vy > 0 && onPaddleX && ball.y + BALL_R >= PADDLE_Y && ball.y - BALL_R < PADDLE_Y + PADDLE_H) {
-        const hitOffset = clamp((ball.x - paddle.x) / (PADDLE_W / 2), -1, 1);
-        const angle = hitOffset * 1.0;
-        ball.vx = speed * Math.sin(angle);
-        ball.vy = -speed * Math.cos(angle);
-        ball.y = PADDLE_Y - BALL_R;
-      }
-
-      // Bricks: break at most one per frame
-      for (const b of bricks) {
-        if (!b.alive) continue;
-        const nx = clamp(ball.x, b.x, b.x + BRICK_W);
-        const ny = clamp(ball.y, b.y, b.y + BRICK_H);
-        const dx = ball.x - nx;
-        const dy = ball.y - ny;
-        if (dx * dx + dy * dy > BALL_R * BALL_R) continue;
-
-        b.alive = false;
-        const wasInColumn = prevX >= b.x && prevX <= b.x + BRICK_W;
-        const wasInRow = prevY >= b.y && prevY <= b.y + BRICK_H;
-        if (!wasInColumn) ball.vx = -ball.vx;
-        if (!wasInRow) ball.vy = -ball.vy;
-
-        speed = Math.min(MAX_SPEED, speed + 0.04);
-        const m = Math.hypot(ball.vx, ball.vy);
-        ball.vx *= speed / m;
-        ball.vy *= speed / m;
-
-        score += 10;
-        burst(ball.x, ball.y, b.hue);
-        break;
-      }
-
-      if (bricks.every(b => !b.alive)) {
-        level++;
-        speed = Math.min(MAX_SPEED, speed + 0.5);
-        buildBricks();
         serve();
-        return;
       }
+      return;
+    }
 
+    ball.x += ball.vx * step;
+    ball.y += ball.vy * step;
+
+    if (ball.y < BALL_R) {
+      ball.y = 2 * BALL_R - ball.y;
+      ball.vy = Math.abs(ball.vy);
+    } else if (ball.y > H - BALL_R) {
+      ball.y = 2 * (H - BALL_R) - ball.y;
+      ball.vy = -Math.abs(ball.vy);
+    }
+
+    for (let i = 0; i < 2; i++) {
+      const p = paddles[i];
+      const touching = ball.x + BALL_R >= p.x && ball.x - BALL_R <= p.x + PAD_W;
+      const inReach = ball.y >= p.y - BALL_R && ball.y <= p.y + PAD_H + BALL_R;
+      if (!incoming(i) || !touching || !inReach) continue;
+
+      // Where the ball strikes sets the angle: edges send it off steeper
+      const offset = Math.max(-1, Math.min(1, (ball.y - p.y - PAD_H / 2) / (PAD_H / 2)));
+      const angle = offset * 0.95;
+      ball.speed = Math.min(ball.speed * SPEED_UP, SPEED_MAX);
+      ball.x = i === 0 ? p.x + PAD_W + BALL_R : p.x - BALL_R;
+      ball.vx = (i === 0 ? 1 : -1) * ball.speed * Math.cos(angle);
+      ball.vy = ball.speed * Math.sin(angle);
+      p.flash = 1;
+      break;
+    }
+
+    if (ball.x + BALL_R < 0) scorePoint(1);
+    else if (ball.x - BALL_R > W) scorePoint(0);
+    else {
       trail.push({ x: ball.x, y: ball.y });
-      if (trail.length > 14) trail.shift();
+      if (trail.length > TRAIL) trail.shift();
+    }
+  }
 
-      // Ball fell past the paddle
-      if (ball.y - BALL_R > H) {
-        lives--;
-        speed = START_SPEED;
-        if (lives === 0) {
-          phase = 'over';
-          overTimer = 150;
-        } else {
-          serve();
-        }
-      }
+  function draw() {
+    const accent = `hsl(${205 + 45 * Math.sin(time * 0.25)}, 90%, 72%)`;
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * ox, dpr * oy);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Centre line
+    ctx.setLineDash([10, 14]);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(233, 237, 245, 0.12)';
+    ctx.beginPath();
+    ctx.moveTo(W / 2, 0);
+    ctx.lineTo(W / 2, H);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Scores, with a pop when a point is won
+    ctx.fillStyle = INK;
+    paddles.forEach((p, i) => {
+      ctx.globalAlpha = 0.2 + 0.6 * p.pop;
+      ctx.font = `600 ${84 * (1 + 0.2 * p.pop)}px ${FONT}`;
+      ctx.fillText(String(p.score), W / 2 + (i === 0 ? -130 : 130), 90);
+    });
+    ctx.globalAlpha = 1;
+
+    if (winner >= 0) {
+      ctx.fillStyle = accent;
+      ctx.font = `600 40px ${FONT}`;
+      ctx.fillText(winner === 0 ? 'Left wins' : 'Right wins', W / 2, H / 2);
     }
 
-    function reset() {
-      score = 0;
-      lives = 3;
-      level = 1;
-      speed = START_SPEED;
-      phase = 'play';
-      particles = [];
-      buildBricks();
-      serve();
-    }
+    // Paddles glow when they connect
+    ctx.fillStyle = INK;
+    paddles.forEach((p) => {
+      ctx.shadowColor = accent;
+      ctx.shadowBlur = 30 * p.flash * dpr * scale;
+      ctx.beginPath();
+      ctx.roundRect(p.x, p.y, PAD_W, PAD_H, 5);
+      ctx.fill();
+    });
+    ctx.shadowBlur = 0;
 
-    function draw() {
-      ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
-
-      const shift = Math.sin(clock * 0.0002);
-      const bg = ctx.createLinearGradient(0, 0, 0, H);
-      bg.addColorStop(0, `hsl(${235 + 25 * shift}, 50%, 13%)`);
-      bg.addColorStop(1, `hsl(${265 + 20 * shift}, 55%, 5%)`);
-      ctx.fillStyle = bg;
-      ctx.fillRect(0, 0, W, H);
-
-      for (const b of bricks) {
-        if (!b.alive) continue;
-        ctx.fillStyle = `hsl(${b.hue}, 80%, 62%)`;
+    // Ball and its trail
+    if (ball.live) {
+      trail.forEach((t, i) => {
+        const k = (i + 1) / trail.length;
+        ctx.globalAlpha = k * 0.3;
+        ctx.fillStyle = accent;
         ctx.beginPath();
-        ctx.roundRect(b.x, b.y, BRICK_W, BRICK_H, 4);
-        ctx.fill();
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
-        ctx.fillRect(b.x + 4, b.y + 2, BRICK_W - 8, 2);
-      }
-
-      trail.forEach((p, i) => {
-        const a = (i + 1) / trail.length;
-        ctx.globalAlpha = a * 0.4;
-        ctx.fillStyle = '#e0f2fe';
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, BALL_R * a, 0, Math.PI * 2);
+        ctx.arc(t.x, t.y, BALL_R * k, 0, Math.PI * 2);
         ctx.fill();
       });
       ctx.globalAlpha = 1;
-
-      for (const p of particles) {
-        ctx.globalAlpha = p.life;
-        ctx.fillStyle = `hsl(${p.hue}, 90%, 70%)`;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 2.2 * p.life + 0.6, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.globalAlpha = 1;
-
-      const px = paddle.x - PADDLE_W / 2;
-      const pg = ctx.createLinearGradient(px, 0, px + PADDLE_W, 0);
-      pg.addColorStop(0, '#7dd3fc');
-      pg.addColorStop(1, '#c4b5fd');
-      ctx.fillStyle = pg;
-      ctx.shadowColor = 'rgba(125, 211, 252, 0.6)';
-      ctx.shadowBlur = 18;
-      ctx.beginPath();
-      ctx.roundRect(px, PADDLE_Y, PADDLE_W, PADDLE_H, PADDLE_H / 2);
-      ctx.fill();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.shadowColor = 'rgba(224, 242, 254, 0.9)';
-      ctx.shadowBlur = 20;
+      ctx.shadowColor = accent;
+      ctx.shadowBlur = 24 * dpr * scale;
+      ctx.fillStyle = accent;
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, BALL_R, 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0;
-
-      ctx.textBaseline = 'middle';
-      ctx.textAlign = 'left';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
-      ctx.font = '600 22px system-ui, sans-serif';
-      ctx.fillText(String(score), 20, 46);
-      ctx.font = '500 12px system-ui, sans-serif';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-      ctx.fillText(`Level ${level}`, 20, 66);
-
-      ctx.textAlign = 'right';
-      ctx.fillStyle = '#f0abfc';
-      for (let i = 0; i < lives; i++) {
-        ctx.beginPath();
-        ctx.arc(W - 22 - i * 16, 46, 5, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      ctx.textAlign = 'center';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-      ctx.font = '500 12px system-ui, sans-serif';
-      ctx.fillText('Autoplay · click or space to pause', W / 2, 46);
-
-      if (paused || phase === 'over') {
-        ctx.fillStyle = 'rgba(8, 10, 22, 0.55)';
-        ctx.fillRect(0, 0, W, H);
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '600 28px system-ui, sans-serif';
-        ctx.fillText(phase === 'over' ? 'Game over' : 'Paused', W / 2, H / 2 - 10);
-        ctx.font = '400 14px system-ui, sans-serif';
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-        ctx.fillText(phase === 'over' ? 'Starting over...' : 'Press space to resume', W / 2, H / 2 + 22);
-      }
     }
+  }
 
-    window.addEventListener('keydown', (e) => {
-      if (e.code === 'Space') {
-        e.preventDefault();
-        paused = !paused;
-      }
-    });
-    canvas.addEventListener('click', () => { paused = !paused; });
-    window.addEventListener('resize', resize);
-
-    let last = performance.now();
-    function frame(now) {
-      const elapsed = Math.min(now - last, 34);
-      last = now;
-      clock = now;
-      if (!paused) update(elapsed / (1000 / 60));
-      draw();
-      requestAnimationFrame(frame);
-    }
-
-    resize();
-    reset();
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.max(0, Math.min((now - last) / 1000, 1 / 20));
+    last = now;
+    time += dt;
+    update(dt);
+    draw();
     requestAnimationFrame(frame);
-  </script>
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+  requestAnimationFrame(frame);
+})();
+</script>
 </body>
 </html>

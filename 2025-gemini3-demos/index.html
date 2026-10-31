@@ -41,7 +41,7 @@
 
 <h2>An endless voxel forest</h2>
 <video src="clips/forest-compare.mp4" autoplay muted loop playsinline controls></video>
-<p>A Google DeepMind researcher posted this on launch day from a single line: "three js infinitely procedurally generated voxel art scene of walking through the forest with falling autumn leaves". The clip shows Gemini 3 Pro on the left, then Haiku 5.5 on high, then Terra on high. Haiku's forest is dense and dark, and walking forward soon runs into a trunk. Terra's walks itself down a path, but its trees are big blocks rather than detailed voxel art, few leaves are falling, and it added a title and tagline nobody asked for. Neither matches the original here.</p>
+<p>A Google DeepMind researcher posted this on launch day from a single line: "three js infinitely procedurally generated voxel art scene of walking through the forest with falling autumn leaves". The clip shows Gemini 3 Pro on the left, then Haiku 5.5 on high, then Terra on high. Haiku's forest on high is made of big orange and yellow blocks, and when I held the forward key, it got stuck against one within five seconds. On xhigh it has grass and dark green trees, and walking forward reached a trunk in about ten seconds. Terra's walks itself down a path, but its trees are big blocks rather than detailed voxel art, few leaves are falling, and it added a title and tagline nobody asked for. Neither matches the original here.</p>
 <div class="runs">
   <a href="haiku/voxel-forest-high/">Haiku high, live</a>
   <a href="haiku/voxel-forest-xhigh/">Haiku xhigh, live</a>
@@ -51,7 +51,7 @@
 
 <h2>A game that plays itself</h2>
 <video src="clips/selfplaying-compare.mp4" autoplay muted loop playsinline controls></video>
-<p>DeepMind's co-founder asked for "a beautifully simple game that plays itself" and got Autolife, a particle ecosystem. The three models read the prompt differently. Haiku made classic games on autoplay: Snake on high, Breakout on xhigh (shown). Terra made four little characters collecting lights, with a scoreboard.</p>
+<p>DeepMind's co-founder asked for "a beautifully simple game that plays itself" and got Autolife, a particle ecosystem. The three models read the prompt differently. Haiku made classic games on autoplay: Snake on high, Pong on xhigh (shown). Terra made four little characters collecting lights, with a scoreboard.</p>
 <div class="runs">
   <a href="haiku/selfplaying-high/">Haiku high, live</a>
   <a href="haiku/selfplaying-xhigh/">Haiku xhigh, live</a>
@@ -61,7 +61,7 @@
 
 <h2>A voxel scene from a photo</h2>
 <video src="clips/image-voxel.mp4" autoplay muted loop playsinline controls></video>
-<p>The inventor of GANs gave Gemini 3 a picture and one line: "Code a beautiful voxel art scene inspired by this image." I cropped the input picture from his video and gave it to the new models with the same line. The clip shows Haiku on xhigh. On high, Haiku's scene has a stray green wall behind it and one console error.</p>
+<p>The inventor of GANs gave Gemini 3 a picture and one line: "Code a beautiful voxel art scene inspired by this image." I cropped the input picture from his video and gave it to the new models with the same line. The clip shows Haiku on xhigh, with a large green mound behind the island that isn't in the picture. On high, Haiku's scene has a stray wall behind it.</p>
 <p>Terra's page never gets past its loading screen. It imports a Three.js add-on in a way no browser can resolve, and since it had no browser, it finished without finding out. It reported that its syntax check passed. The result is left as it came out.</p>
 <div class="runs">
   <a href="haiku/image-voxel-high/">Haiku high, live</a>
@@ -84,19 +84,19 @@
 <h2 id="runs">Runs</h2>
 <div class="scroll"><table>
   <tr><th>Demo</th><th>Model</th><th>Effort</th><th>Cost</th><th>Time</th></tr>
-  <tr><td>Forest</td><td><span class="m haiku">Haiku 5.5</span></td><td>high</td><td class="num">$0.05</td><td class="num">4 min 27 s</td></tr>
-  <tr><td>Forest</td><td><span class="m haiku">Haiku 5.5</span></td><td>xhigh</td><td class="num">$0.06</td><td class="num">5 min 34 s</td></tr>
+  <tr><td>Forest</td><td><span class="m haiku">Haiku 5.5</span></td><td>high</td><td class="num">$0.04</td><td class="num">3 min 54 s</td></tr>
+  <tr><td>Forest</td><td><span class="m haiku">Haiku 5.5</span></td><td>xhigh</td><td class="num">$0.23</td><td class="num">8 min 46 s</td></tr>
   <tr class="terra"><td>Forest</td><td><span class="m terra">GPT&#8209;6.1 Terra</span></td><td>high</td><td class="num">$0.05</td><td class="num">69 s</td></tr>
-  <tr><td>Self-playing game</td><td><span class="m haiku">Haiku 5.5</span></td><td>high</td><td class="num">$0.01</td><td class="num">1 min 18 s</td></tr>
-  <tr><td>Self-playing game</td><td><span class="m haiku">Haiku 5.5</span></td><td>xhigh</td><td class="num">$0.02</td><td class="num">2 min 17 s</td></tr>
+  <tr><td>Self-playing game</td><td><span class="m haiku">Haiku 5.5</span></td><td>high</td><td class="num">$0.02</td><td class="num">1 min 45 s</td></tr>
+  <tr><td>Self-playing game</td><td><span class="m haiku">Haiku 5.5</span></td><td>xhigh</td><td class="num">$0.02</td><td class="num">2 min 24 s</td></tr>
   <tr class="terra"><td>Self-playing game</td><td><span class="m terra">GPT&#8209;6.1 Terra</span></td><td>high</td><td class="num">$0.04</td><td class="num">57 s</td></tr>
-  <tr><td>Voxel scene from a photo</td><td><span class="m haiku">Haiku 5.5</span></td><td>high</td><td class="num">$0.05</td><td class="num">4 min 45 s</td></tr>
-  <tr><td>Voxel scene from a photo</td><td><span class="m haiku">Haiku 5.5</span></td><td>xhigh</td><td class="num">$0.06</td><td class="num">5 min 59 s</td></tr>
+  <tr><td>Voxel scene from a photo</td><td><span class="m haiku">Haiku 5.5</span></td><td>high</td><td class="num">$0.05</td><td class="num">5 min 8 s</td></tr>
+  <tr><td>Voxel scene from a photo</td><td><span class="m haiku">Haiku 5.5</span></td><td>xhigh</td><td class="num">$0.27</td><td class="num">8 min 58 s</td></tr>
   <tr class="terra"><td>Voxel scene from a photo</td><td><span class="m terra">GPT&#8209;6.1 Terra</span></td><td>high</td><td class="num">$0.05</td><td class="num">73 s, did not load</td></tr>
-  <tr><td>Pelican</td><td><span class="m haiku">Haiku 5.5</span></td><td>high</td><td class="num">$0.02</td><td class="num">2 min 14 s</td></tr>
-  <tr><td>Pelican</td><td><span class="m haiku">Haiku 5.5</span></td><td>xhigh</td><td class="num">$0.05</td><td class="num">4 min 53 s</td></tr>
+  <tr><td>Pelican</td><td><span class="m haiku">Haiku 5.5</span></td><td>high</td><td class="num">$0.02</td><td class="num">2 min 8 s</td></tr>
+  <tr><td>Pelican</td><td><span class="m haiku">Haiku 5.5</span></td><td>xhigh</td><td class="num">$0.03</td><td class="num">3 min 37 s</td></tr>
   <tr class="terra"><td>Pelican</td><td><span class="m terra">GPT&#8209;6.1 Terra</span></td><td>high</td><td class="num">$0.02</td><td class="num">49 s</td></tr>
-  <tr><td colspan="3"><strong><span class="m haiku">Haiku 5.5</span> total (8 runs)</strong></td><td class="num"><strong>$0.31</strong></td><td></td></tr>
+  <tr><td colspan="3"><strong><span class="m haiku">Haiku 5.5</span> total (8 runs)</strong></td><td class="num"><strong>$0.69</strong></td><td></td></tr>
   <tr class="terra"><td colspan="3"><strong><span class="m terra">GPT&#8209;6.1 Terra</span> total (4 runs)</strong></td><td class="num"><strong>$0.17</strong></td><td></td></tr>
 </table></div>
 
@@ -105,6 +105,8 @@
   <li>One run per demo and effort level, no retries, no follow-up prompts, and the results are shown as they came out.</li>
   <li>Prompts are the originals, word for word. I added one line saying where to save the file, and for the photo demo, which file the picture is.</li>
   <li>Neither model had a browser or web search, so neither saw its page render.</li>
+  <li>Haiku started in an empty folder outside my repo, with my personal Claude Code instructions file, Claude Code's memory and my other project folders blocked. An earlier set of these runs, which never went public, had that file loaded by accident, so I reran all eight.</li>
+  <li>Costs on xhigh jump where one long turn of thinking passed 100K tokens. Haiku's input rate rises fivefold for requests above that size.</li>
   <li>Haiku ran in Claude Code (<code>claude-haiku-5-5</code>) and could only read and edit files. Terra ran in Codex CLI (<code>gpt-6.1-terra</code>), which always gives the model a shell, with network access off. Terra used it to write files and check syntax.</li>
   <li>Costs are the tokens each run used at API list prices. I ran them on subscriptions, so nothing was charged. The original posts don't give Gemini's cost, so there's no price comparison here.</li>
   <li>The original clips are from public posts and show whatever their authors chose to show. This is a rerun of public demos, not a benchmark.</li>

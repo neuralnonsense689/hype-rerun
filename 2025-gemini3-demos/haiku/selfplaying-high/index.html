@@ -1,347 +1,258 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Snake, Playing Itself</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Serpent</title>
 <style>
-  html, body {
-    margin: 0;
-    height: 100%;
-    overflow: hidden;
-    background: radial-gradient(circle at 50% 30%, #1b2440 0%, #070a14 75%);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-    color: #cfd8ff;
-  }
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
   body {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
+    display: grid;
+    place-items: center;
+    background: radial-gradient(circle at 50% 30%, #161d3d 0%, #07081a 70%);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: #e8ecff;
+    overflow: hidden;
   }
-  #bar {
-    display: flex;
-    justify-content: space-between;
-    box-sizing: border-box;
-    padding: 0 4px;
-    font-size: 13px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    opacity: 0.6;
+  main { display: flex; flex-direction: column; align-items: center; gap: 1.2rem; }
+  #score {
+    font-size: 3rem;
+    font-weight: 200;
+    letter-spacing: 0.05em;
+    opacity: 0.85;
+    font-variant-numeric: tabular-nums;
   }
-  #bar b { font-weight: 600; color: #ffffff; }
   canvas {
-    display: block;
     border-radius: 18px;
-    background: linear-gradient(160deg, #141b33 0%, #0b1020 100%);
-    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  }
+  footer {
+    font-size: 0.8rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    opacity: 0.4;
   }
 </style>
 </head>
 <body>
-<div id="bar" style="width: 100%;">
-  <span>Snake, playing itself</span>
-  <span>Score <b id="score">0</b> &nbsp;·&nbsp; Best <b id="best">0</b></span>
-</div>
-<canvas id="board"></canvas>
-
+<main>
+  <div id="score">0</div>
+  <canvas id="board"></canvas>
+  <footer>a game that plays itself</footer>
+</main>
 <script>
-  const COLS = 22;
-  const ROWS = 22;
-  const TICK_MS = 85;          // time between moves
-  const RESTART_MS = 2200;     // pause on the game-over card before a new game
-  const TAU = Math.PI * 2;
-  const DIRS = [{ x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 0, y: -1 }];
+  const GRID = 20;
+  const TICK_MS = 110;
+  const RESTART_MS = 2200;
+  const DIRS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 
   const canvas = document.getElementById('board');
   const ctx = canvas.getContext('2d');
   const scoreEl = document.getElementById('score');
-  const bestEl = document.getElementById('best');
 
-  let cell = 0;
-  let dpr = 1;
-  let snake = [];
-  let prev = [];
-  let dir = { x: 1, y: 0 };
-  let food = null;
-  let score = 0;
-  let best = 0;
-  let over = null;
-  let lastTick = 0;
+  let size = 0, cell = 0, dpr = 1;
+  let snake, prev, food, score, dead, deadAt, endText, acc, last;
 
-  // ---------- helpers ----------
+  const key = (x, y) => x + y * GRID;
+  const inside = (x, y) => x >= 0 && y >= 0 && x < GRID && y < GRID;
+  const same = (a, b) => a[0] === b[0] && a[1] === b[1];
 
-  const idx = (p) => p.y * COLS + p.x;
-  const inside = (p) => p.x >= 0 && p.y >= 0 && p.x < COLS && p.y < ROWS;
-  const same = (a, b) => a.x === b.x && a.y === b.y;
-
-  // Breadth-first search from `from` to the cell with index `goalI`.
-  // Returns the list of cell indexes along the way (first step first), or null.
-  function findPath(from, blocked, goalI) {
-    const startI = idx(from);
-    const prevOf = new Map([[startI, -1]]);
-    const queue = [from];
-    for (let i = 0; i < queue.length; i++) {
-      const p = queue[i];
-      const pi = idx(p);
-      if (pi === goalI) {
-        const path = [];
-        for (let c = pi; c !== startI; c = prevOf.get(c)) path.push(c);
-        return path.reverse();
-      }
-      for (const d of DIRS) {
-        const n = { x: p.x + d.x, y: p.y + d.y };
-        if (!inside(n)) continue;
-        const ni = idx(n);
-        if (blocked.has(ni) || prevOf.has(ni)) continue;
-        prevOf.set(ni, pi);
-        queue.push(n);
-      }
-    }
-    return null;
-  }
-
-  // How many open cells can be reached from `from`.
-  function room(from, blocked) {
-    const seen = new Set([idx(from)]);
-    const queue = [from];
-    for (let i = 0; i < queue.length; i++) {
-      const p = queue[i];
-      for (const d of DIRS) {
-        const n = { x: p.x + d.x, y: p.y + d.y };
-        if (!inside(n)) continue;
-        const ni = idx(n);
-        if (blocked.has(ni) || seen.has(ni)) continue;
-        seen.add(ni);
-        queue.push(n);
-      }
-    }
-    return queue.length;
+  function reset(now) {
+    const m = GRID >> 1;
+    snake = [[m, m], [m - 1, m], [m - 2, m], [m - 3, m]];
+    prev = snake.map(p => [...p]);
+    food = spawnFood();
+    score = 0;
+    dead = false;
+    scoreEl.textContent = '0';
+    acc = 0;
+    last = now;
   }
 
   function spawnFood() {
-    const taken = new Set(snake.map(idx));
+    const taken = new Set(snake.map(([x, y]) => key(x, y)));
     const free = [];
-    for (let y = 0; y < ROWS; y++) {
-      for (let x = 0; x < COLS; x++) {
-        if (!taken.has(y * COLS + x)) free.push({ x, y });
+    for (let y = 0; y < GRID; y++)
+      for (let x = 0; x < GRID; x++)
+        if (!taken.has(key(x, y))) free.push([x, y]);
+    return free.length ? free[Math.floor(Math.random() * free.length)] : null;
+  }
+
+  // Breadth-first search: how many cells are reachable, and how far to the target.
+  function explore(sx, sy, blocked, tx, ty) {
+    const seen = new Set([key(sx, sy)]);
+    const queue = [[sx, sy, 0]];
+    let dist = Infinity;
+    for (let i = 0; i < queue.length; i++) {
+      const [x, y, d] = queue[i];
+      if (dist === Infinity && x === tx && y === ty) dist = d;
+      for (const [dx, dy] of DIRS) {
+        const nx = x + dx, ny = y + dy, k = key(nx, ny);
+        if (inside(nx, ny) && !blocked.has(k) && !seen.has(k)) {
+          seen.add(k);
+          queue.push([nx, ny, d + 1]);
+        }
       }
     }
-    if (!free.length) return null;
-    return free[Math.floor(Math.random() * free.length)];
+    return { area: queue.length, dist };
   }
 
-  // ---------- the player ----------
+  function chooseMove() {
+    const [hx, hy] = snake[0];
+    const body = new Set(snake.slice(0, -1).map(([x, y]) => key(x, y)));
+    let best = -1, bestScore = -Infinity;
 
-  // Pick the next direction. Prefer the shortest path to food, as long as the
-  // snake can still reach its own tail afterwards. Otherwise take the safest
-  // move that leaves the most open space.
-  function think() {
-    const head = snake[0];
-    const body = new Set(snake.slice(0, -1).map(idx));
-    const options = [];
+    for (let d = 0; d < 4; d++) {
+      const nx = hx + DIRS[d][0], ny = hy + DIRS[d][1];
+      if (!inside(nx, ny) || body.has(key(nx, ny))) continue;
 
-    for (const d of DIRS) {
-      const n = { x: head.x + d.x, y: head.y + d.y };
-      if (!inside(n) || body.has(idx(n))) continue;
+      const eating = nx === food[0] && ny === food[1];
+      const after = [[nx, ny], ...(eating ? snake : snake.slice(0, -1))];
+      const blocked = new Set(after.slice(0, -1).map(([x, y]) => key(x, y)));
+      const tail = after[after.length - 1];
 
-      const eat = same(n, food);
-      const next = [n, ...snake.slice(0, eat ? snake.length : snake.length - 1)];
-      const blocked = new Set(next.slice(0, -1).map(idx));
-      const tail = next[next.length - 1];
+      const toFood = explore(nx, ny, blocked, food[0], food[1]);
+      const toTail = explore(nx, ny, blocked, tail[0], tail[1]);
+      const safe = toTail.dist < Infinity && toFood.area >= after.length;
 
-      options.push({
-        d,
-        n,
-        i: idx(n),
-        eat,
-        safe: findPath(n, blocked, idx(tail)) !== null,
-        room: room(n, blocked),
-        dist: Math.abs(n.x - food.x) + Math.abs(n.y - food.y),
-      });
+      const s = (safe ? 0 : -1e6)
+              + (toFood.dist === Infinity ? -1e5 : -toFood.dist * 10)
+              + Math.min(toFood.area, 400) * 0.1;
+      if (s > bestScore) { bestScore = s; best = d; }
     }
-
-    if (!options.length) return null;
-
-    const path = findPath(head, body, idx(food));
-    if (path) {
-      const direct = options.find((o) => o.i === path[0] && o.safe);
-      if (direct) return direct;
-    }
-
-    options.sort((a, b) => (b.safe - a.safe) || (b.room - a.room) || (a.dist - b.dist));
-    return options[0];
+    return best;
   }
 
-  function step(now) {
-    const choice = think();
-    if (!choice) {
-      over = { at: now, title: 'Game over' };
+  function tick(now) {
+    const move = chooseMove();
+    prev = snake.map(p => [...p]);
+
+    if (move < 0) {
+      dead = true;
+      deadAt = now;
+      endText = 'Game over';
       return;
     }
 
-    dir = choice.d;
-    snake.unshift(choice.n);
+    const head = [snake[0][0] + DIRS[move][0], snake[0][1] + DIRS[move][1]];
+    snake.unshift(head);
 
-    if (choice.eat) {
+    if (same(head, food)) {
       score++;
-      best = Math.max(best, score);
+      scoreEl.textContent = score;
       food = spawnFood();
-      if (!food) over = { at: now, title: 'Perfect game!' };
+      if (!food) {
+        dead = true;
+        deadAt = now;
+        endText = 'Board cleared';
+      }
     } else {
       snake.pop();
     }
-
-    scoreEl.textContent = score;
-    bestEl.textContent = best;
   }
 
-  function reset() {
-    const cx = Math.floor(COLS / 2);
-    const cy = Math.floor(ROWS / 2);
-    snake = [{ x: cx, y: cy }, { x: cx - 1, y: cy }, { x: cx - 2, y: cy }];
-    prev = snake.map((s) => ({ ...s }));
-    dir = { x: 1, y: 0 };
-    score = 0;
-    over = null;
-    food = spawnFood();
-    scoreEl.textContent = score;
-  }
-
-  // ---------- drawing ----------
-
-  function colorAt(f) {
-    const hue = 165 + 100 * f;
-    const light = 64 - 14 * f;
-    return `hsl(${hue}, 80%, ${light}%)`;
-  }
-
-  function draw(now) {
-    const size = cell * COLS;
-    const t = over ? 1 : Math.min(1, (now - lastTick) / TICK_MS);
+  function draw(now, t) {
+    const n = snake.length;
+    const fade = dead ? Math.min(1, (now - deadAt) / 400) : 0;
+    const sat = 85 * (1 - fade);
+    const inset = cell * 0.1, radius = cell * 0.28, w = cell - inset * 2;
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, size, size);
 
-    // faint grid dots
-    ctx.fillStyle = 'rgba(180, 200, 255, 0.08)';
-    for (let y = 0; y < ROWS; y++) {
-      for (let x = 0; x < COLS; x++) {
-        ctx.fillRect((x + 0.5) * cell - 1, (y + 0.5) * cell - 1, 2, 2);
-      }
-    }
+    const bg = ctx.createLinearGradient(0, 0, 0, size);
+    bg.addColorStop(0, '#141b38');
+    bg.addColorStop(1, '#080a18');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, size, size);
 
-    // food, with a gentle pulse
-    if (food) {
-      const pulse = 0.5 + 0.5 * Math.sin(now / 200);
-      const fx = (food.x + 0.5) * cell;
-      const fy = (food.y + 0.5) * cell;
-      ctx.shadowColor = '#ff6b8b';
-      ctx.shadowBlur = cell * (0.6 + 0.4 * pulse);
-      ctx.fillStyle = '#ff6b8b';
-      ctx.beginPath();
-      ctx.arc(fx, fy, cell * (0.26 + 0.04 * pulse), 0, TAU);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-    }
-
-    // snake positions, glided from last step to this one
-    const pts = snake.map((s, i) => {
-      const f = prev[Math.min(i, prev.length - 1)];
-      return {
-        x: (f.x + (s.x - f.x) * t + 0.5) * cell,
-        y: (f.y + (s.y - f.y) * t + 0.5) * cell,
-      };
-    });
-
-    // body, drawn from tail to head so the head sits on top
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.lineWidth = cell * 0.78;
-    for (let i = pts.length - 1; i > 0; i--) {
-      ctx.strokeStyle = colorAt(i / (pts.length - 1));
-      ctx.beginPath();
-      ctx.moveTo(pts[i].x, pts[i].y);
-      ctx.lineTo(pts[i - 1].x, pts[i - 1].y);
-      ctx.stroke();
-    }
-
-    // head with eyes that face the way it is moving
-    const h = pts[0];
-    ctx.shadowColor = colorAt(0);
-    ctx.shadowBlur = cell * 0.6;
-    ctx.fillStyle = colorAt(0);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
     ctx.beginPath();
-    ctx.arc(h.x, h.y, cell * 0.42, 0, TAU);
+    for (let y = 0; y < GRID; y++)
+      for (let x = 0; x < GRID; x++) {
+        ctx.moveTo((x + 0.5) * cell + 1.2, (y + 0.5) * cell);
+        ctx.arc((x + 0.5) * cell, (y + 0.5) * cell, 1.2, 0, Math.PI * 2);
+      }
     ctx.fill();
-    ctx.shadowBlur = 0;
 
-    const px = -dir.y;
-    const py = dir.x;
-    for (const side of [-1, 1]) {
-      const ex = h.x + dir.x * cell * 0.14 + px * cell * 0.18 * side;
-      const ey = h.y + dir.y * cell * 0.14 + py * cell * 0.18 * side;
-      ctx.fillStyle = '#ffffff';
+    if (food) {
+      const r = cell * 0.3 * (1 + 0.08 * Math.sin(now / 180));
+      ctx.save();
+      ctx.shadowColor = '#ff6b9a';
+      ctx.shadowBlur = cell * 0.9;
+      ctx.fillStyle = '#ff7aa8';
       ctx.beginPath();
-      ctx.arc(ex, ey, cell * 0.1, 0, TAU);
+      ctx.arc((food[0] + 0.5) * cell, (food[1] + 0.5) * cell, r, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = '#0b1020';
-      ctx.beginPath();
-      ctx.arc(ex + dir.x * cell * 0.04, ey + dir.y * cell * 0.04, cell * 0.05, 0, TAU);
-      ctx.fill();
+      ctx.restore();
     }
 
-    // game-over card
-    if (over) {
-      ctx.globalAlpha = Math.min(1, (now - over.at) / 400);
-      ctx.fillStyle = 'rgba(7, 10, 20, 0.6)';
+    for (let i = n - 1; i >= 0; i--) {
+      const [px, py] = snake[i];
+      const [ox, oy] = prev[Math.min(i, prev.length - 1)];
+      const x = (ox + (px - ox) * t) * cell + inset;
+      const y = (oy + (py - oy) * t) * cell + inset;
+      const hue = 175 + 115 * (i / (n - 1));
+      const color = `hsl(${hue} ${sat}% ${i === 0 ? 72 : 60}%)`;
+
+      ctx.fillStyle = color;
+      if (i === 0) {
+        ctx.save();
+        ctx.shadowColor = color;
+        ctx.shadowBlur = cell * 0.9;
+      }
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, w, radius);
+      ctx.fill();
+      if (i === 0) ctx.restore();
+    }
+
+    if (dead) {
+      ctx.fillStyle = `rgba(6, 8, 20, ${0.55 * fade})`;
       ctx.fillRect(0, 0, size, size);
+      ctx.globalAlpha = fade;
+      ctx.fillStyle = '#eef1ff';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#e8edff';
-      ctx.font = `600 ${cell * 1.3}px -apple-system, Helvetica, Arial, sans-serif`;
-      ctx.fillText(over.title, size / 2, size / 2 - cell * 0.6);
-      ctx.font = `400 ${cell * 0.8}px -apple-system, Helvetica, Arial, sans-serif`;
-      ctx.fillText(`Score ${score}`, size / 2, size / 2 + cell * 0.8);
+      ctx.font = `600 ${size * 0.065}px system-ui, sans-serif`;
+      ctx.fillText(endText, size / 2, size / 2 - size * 0.04);
+      ctx.font = `400 ${size * 0.035}px system-ui, sans-serif`;
+      ctx.fillStyle = 'rgba(232, 236, 255, 0.6)';
+      ctx.fillText(`score ${score} · starting over`, size / 2, size / 2 + size * 0.05);
       ctx.globalAlpha = 1;
     }
   }
 
-  // ---------- loop ----------
-
   function resize() {
-    const size = Math.max(240, Math.min(window.innerWidth - 32, window.innerHeight - 110, 620));
     dpr = window.devicePixelRatio || 1;
-    cell = size / COLS;
-    canvas.style.width = size + 'px';
-    canvas.style.height = size + 'px';
-    canvas.width = Math.floor(size * dpr);
-    canvas.height = Math.floor(size * dpr);
+    size = Math.floor(Math.max(200, Math.min(innerWidth * 0.92, innerHeight - 170, 560)));
+    canvas.style.width = canvas.style.height = size + 'px';
+    canvas.width = canvas.height = Math.round(size * dpr);
+    cell = size / GRID;
   }
 
   function frame(now) {
-    if (!lastTick) lastTick = now;
+    const dt = Math.min(now - last, 100);
+    last = now;
 
-    if (!over && now - lastTick >= TICK_MS) {
-      prev = snake.map((s) => ({ ...s }));
-      step(now);
-      lastTick = now;
+    if (dead) {
+      if (now - deadAt > RESTART_MS) reset(now);
+    } else {
+      acc += dt;
+      if (acc >= TICK_MS) {
+        acc -= TICK_MS;
+        tick(now);
+      }
     }
 
-    if (over && now - over.at > RESTART_MS) {
-      reset();
-      lastTick = now;
-    }
-
-    draw(now);
+    draw(now, dead ? 1 : acc / TICK_MS);
     requestAnimationFrame(frame);
   }
 
-  window.addEventListener('resize', resize);
   resize();
-  reset();
-  bestEl.textContent = best;
+  addEventListener('resize', resize);
+  reset(performance.now());
   requestAnimationFrame(frame);
 </script>
 </body>
