@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Two 2026 AI software builds, rerun on Haiku 5.5 and GPT-6.1 Terra</title>
+<meta name="description" content="A JSONata port to Go and a Z80 emulator in C, both written up as AI coding feats in early 2026, rerun on Claude Haiku 5.5 and GPT-6.1 Terra in October 2026 and graded with the official tests.">
+<link rel="icon" href="../goldfish.png">
+<style>
+  :root { --bg: #0b0d10; --fg: #e8eaed; --dim: #9aa0a6; --line: #262a31; --accent: #f08a3e; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.55 -apple-system, "Helvetica Neue", Arial, sans-serif; }
+  main { max-width: 960px; margin: 0 auto; padding: 32px 16px 64px; }
+  a { color: var(--accent); }
+  .back { font-size: 15px; }
+  h1 { font-size: 34px; line-height: 1.2; margin: 18px 0 8px; }
+  h2 { font-size: 24px; margin: 56px 0 6px; }
+  h3 { font-size: 19px; margin: 32px 0 4px; }
+  p { margin: 8px 0; }
+  .dim { color: var(--dim); }
+  img { width: 100%; border-radius: 10px; display: block; margin: 16px 0 10px; }
+  .runs { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 15px; margin-top: 14px; }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 15px; margin-top: 12px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--dim); font-weight: 600; }
+  td.num { font-variant-numeric: tabular-nums; }
+  .m::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 7px; background: var(--c); }
+  .orig { --c: #8a9099; }
+  .haiku { --c: #f08a3e; }
+  .terra { --c: #5ec4b6; }
+  ul { padding-left: 20px; }
+  li { margin: 4px 0; }
+  footer { margin-top: 56px; font-size: 14px; color: var(--dim); }
+</style>
+</head>
+<body>
+<main>
+<a class="back" href="../">hype rerun</a>
+<h1>Two 2026 AI software builds, rerun on Haiku 5.5 and GPT&#8209;6.1 Terra</h1>
+<p class="dim">October 2026. A JSON query language ported to Go and a Z80 emulator written in C, both published as AI coding results in early 2026. I gave the jobs to two cheap models and graded the results with the official tests in a container with no network.</p>
+
+<h2>Porting JSONata from JavaScript to Go</h2>
+<img src="jsonata-time.png" alt="Bar chart. Original in March 2026: about 7 hours, $400, 1,656 tests passed. Haiku 5.5 high: 54 minutes, $5.64, 1,656 passed, no Keep going prompts. GPT-6.1 Terra high: 2 hours 42 minutes, $29.98, 1,657 passed, stopped by a $30 cap.">
+<p>In March 2026 a data engineer at Reco wrote up how they rewrote JSONata in Go with AI: "some 7 hours" and $400 in tokens. Their company's Go services had been calling JavaScript JSONata pods over RPC, and the new library replaced them in production after review and a shadow rollout.</p>
+<div class="scroll"><table>
+  <tr><th></th><th><span class="m orig">Original</span> (Mar 2026)</th><th><span class="m haiku">Haiku 5.5</span> high</th><th><span class="m terra">GPT&#8209;6.1 Terra</span> high</th></tr>
+  <tr><td>Official suite, public API and normal entry point (1,657 cases)</td><td class="num">1,656</td><td class="num">1,656</td><td class="num">1,657</td></tr>
+  <tr><td>Same suite, second entry point (returns Go values)</td><td class="num">not run</td><td class="num">1,656</td><td class="num">1,654</td></tr>
+  <tr><td>Time</td><td class="num">about 7 h</td><td class="num">53 min 51 s</td><td class="num">2 h 42 min, stopped by my cap</td></tr>
+  <tr><td>Cost</td><td class="num">$400 (their figure)</td><td class="num">$5.64</td><td class="num">$29.98 (cap $30)</td></tr>
+  <tr><td>Prompts</td><td>the author steered "a few iterations"</td><td>plan, go, 0 "Keep going"</td><td>plan, go, 36 "Keep going"</td></tr>
+  <tr><td>Said it was done</td><td></td><td>yes</td><td>no</td></tr>
+  <tr><td>Go code, without tests</td><td class="num">13,000 lines (their figure, may include tests)</td><td class="num">9,553 lines</td><td class="num">15,369 lines</td></tr>
+</table></div>
+<h3>How they worked</h3>
+<p>Haiku wrote a plan, got "go", and worked until it reported everything done. Its one miss, a stack-depth test, is there because the library has no public option for the suite's depth limit. With a test-only hook into the internal setting its own test uses, it passes 1,657.</p>
+<p>Terra stopped often to report progress. By its own count it reached a full pass during the 19th "Keep going", which alone ran 75 minutes. At the end of that prompt it stood at 1 h 56 min and $22.32. It kept working on the plan until my $30 cap ended the run, and it never said it was done. I graded the final code.</p>
+<h3>Things worth knowing</h3>
+<ul>
+  <li>The original's plan and prompts aren't public. I rebuilt them from the post, with the same approach (port the official tests, implement until they pass) and the same extras: two-tier evaluation, a streaming evaluator, a schema plan cache, metrics and a WASM build.</li>
+  <li>The original had a production wrapper, an RPC fallback, review and a shadow rollout after the first build. These runs had none of that. I left the RPC fallback out of the task, because there's no such service here.</li>
+  <li>The original's model isn't public. The post's image caption points to Cursor.</li>
+  <li>The original's "1,778 tests" counts Go test group nodes too. The suite has 1,657 real cases at that commit. The original's one miss on my grader is a null-input case that its own runner treats differently.</li>
+  <li>The models got the test suite and the JavaScript source, as a port normally would, with no internet, so only Go's standard library. The original used gjson.</li>
+  <li>Passing the suite doesn't show full compatibility. By their own reports, Haiku uses Go's regex engine (no lookaround or backreferences) and orders strings by UTF-8 instead of UTF-16. Terra has a partial JavaScript regex engine and differs on unusual <code>$formatNumber</code> pictures. Terra's 3 misses on the second entry point depend on key order, which Go maps lose.</li>
+  <li>I changed the grader three times after seeing results: applying the suite's time and depth limits, passing lone surrogates through, and adapting to how each library reports error codes and null. The original's score didn't change.</li>
+  <li>Both libraries pass <code>go vet</code>, <code>go test -race</code> and a WASM build with no network. Neither log shows reads of the original library, and neither has case-specific code outside its tests. Each model wrote its own benchmarks on its own inputs, so I don't compare speed.</li>
+</ul>
+<div class="runs">
+  <a href="https://www.reco.ai/blog/we-rewrote-jsonata-with-ai">Original post</a>
+  <a href="https://github.com/RecoLabs/gnata">gnata, the original port</a>
+  <a href="https://github.com/jsonata-js/jsonata">jsonata-js</a>
+</div>
+
+<h2>Writing a Z80 emulator in C</h2>
+<p>In February 2026 the creator of Redis had Opus 4.6 in Claude Code write a Z80 CPU emulator: "20 or 30 minutes", prompted "zero times" during the work, passing ZEXDOC and ZEXALL, the standard instruction exercisers for this chip. It was the first step of a longer post, and the later ZX Spectrum work had more human help. I only reran the CPU step.</p>
+<div class="scroll"><table>
+  <tr><th></th><th><span class="m orig">Opus 4.6</span> (Feb 2026)</th><th><span class="m haiku">Haiku 5.5</span> high</th><th><span class="m terra">Terra</span>, one prompt</th><th><span class="m terra">Terra</span>, with "Keep going"</th></tr>
+  <tr><td>ZEXDOC</td><td class="num">67/67</td><td class="num">67/67</td><td>unfinished, not run</td><td class="num">67/67</td></tr>
+  <tr><td>ZEXALL</td><td class="num">67/67</td><td class="num">67/67</td><td>unfinished, not run</td><td class="num">67/67</td></tr>
+  <tr><td>Time</td><td class="num">20 or 30 min</td><td class="num">25 min 47 s</td><td class="num">90 s, then stopped</td><td class="num">16 min 52 s to first pass</td></tr>
+  <tr><td>Prompts</td><td class="num">1</td><td class="num">1</td><td class="num">1</td><td class="num">1 + 11 "Keep going" to first pass</td></tr>
+  <tr><td>Cost</td><td>not published (Claude Max)</td><td class="num">$0.86</td><td class="num">$0.08</td><td class="num">$0.91 to first pass</td></tr>
+</table></div>
+<h3>Things worth knowing</h3>
+<ul>
+  <li>The original spec and prompt aren't public. I rebuilt them from the post and used the reference notes and test programs from the original repository. The grader is my own small CP/M harness around each model's CPU code. It gives the original emulator 67 OK and 0 errors on both programs.</li>
+  <li>Terra's first run stopped unfinished, despite the rule "Never stop for prompting". The second run started from an empty folder.</li>
+  <li>My stop rule missed Terra's report at the 11th "Keep going", so it got more prompts up to 34, then I stopped it by hand. That whole run cost $3.58. I graded only the final code, so the pass at the 11th prompt comes from Terra's own command output.</li>
+  <li>Z80 emulators and these test programs are widely published, so the models know them from training.</li>
+</ul>
+<div class="runs">
+  <a href="https://antirez.com/news/160">Original post</a>
+  <a href="https://github.com/antirez/ZOT">ZOT, the original repository</a>
+</div>
+
+<h2>How this was run</h2>
+<ul>
+  <li>Haiku ran in Claude Code (<code>claude-haiku-5-5</code>, effort high). Terra ran in Codex CLI (<code>gpt-6.1-terra</code>, reasoning high). Neither had internet access or a stronger model as a helper.</li>
+  <li>Each score here comes from one finished run per setup. That's enough to see what happened, not to rank models.</li>
+  <li>The Haiku runs reported here had my personal Claude rules file, memory and other runs' work blocked. Earlier Haiku tries had the rules file loaded. The JSONata ones were stopped before finishing and aren't counted. The Z80 one finished and also scored 67/67 ($0.72, 16 min 46 s), and I report the later run instead.</li>
+  <li>Costs are the tokens each run used at the provider's API list price. I ran them on subscriptions, so nothing was charged. The $400 is from the original post.</li>
+</ul>
+
+<footer>
+  <p>Original work belongs to its authors: Nir Barak and Reco (gnata), Salvatore Sanfilippo (ZOT), the JSONata project. Results here are linked, not copied.</p>
+  <p>By <a href="https://x.com/neuralnonsense_">@neuralnonsense_</a></p>
+</footer>
+</main>
+</body>
+</html>
