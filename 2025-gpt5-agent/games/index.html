@@ -45,15 +45,15 @@
 <h2>A Counter-Strike-style shooter in Three.js</h2>
 <video src="cs-compare.mp4" autoplay muted loop playsinline controls></video>
 <p>In November 2025 a developer at a database startup gave GPT-5.1-Codex-Max, Claude Opus 4.5 and Gemini 3 Pro the same series of prompts to build a browser shooter, then made it multiplayer. The post reached 287 points on Hacker News. I gave Haiku 5.5 and GPT-6.1 Terra the first four prompts, word for word and in order, starting from the same empty Next.js template the originals started from.</p>
-<p>The four prompts: a first-person map with a crosshair and enemies you can shoot; enemies that look like people; a gun in view that kicks back when you shoot; chiptune shot sounds and death animations. The clip shows stage 3: first Haiku, then Terra, each next to Opus 4.5, which the post judged best of the three on visuals. The Opus clip is from the post; the new games are played by a script.</p>
+<p>The four prompts: a first-person map with a crosshair and enemies you can shoot; enemies that look like people; a gun in view that kicks back when you shoot; chiptune shot sounds and death animations. The clip shows stage 3: first Haiku, then Terra, each next to Opus 4.5, which the post judged best of the three on visuals. The Opus clip is the post's four-second GIF of the gun, so it shows less of the map than the new games, which are played by a script.</p>
 <div class="scroll"><table>
   <tr><th>Model</th><th>Stages 1–4</th><th>Cost</th><th>Human fixes</th></tr>
-  <tr><td><span class="m gpt5">GPT-5.1-Codex-Max, Opus 4.5, Gemini 3 Pro</span> (Nov 2025)</td><td>about 2 h for the whole comparison, all seven stages (author's comment)</td><td>not published</td><td>errors pasted back when they came up</td></tr>
+  <tr><td><span class="m gpt5">GPT-5.1-Codex-Max, Opus 4.5, Gemini 3 Pro</span> (Nov 2025)</td><td>about 2 h for the whole comparison, all seven stages (author's comment)</td><td>not published</td><td>little on these stages: Codex fixed one error, Gemini needed back and forth on the gun. Pasting errors back came at stage 5, which I didn't run</td></tr>
   <tr><td><span class="m haiku">Haiku 5.5</span> high</td><td class="num">11 min</td><td class="num">$0.44</td><td>none</td></tr>
   <tr class="terra"><td><span class="m terra">GPT&#8209;6.1 Terra</span> high</td><td class="num">4.5 min</td><td class="num">$0.14</td><td>none</td></tr>
 </table></div>
 <ul>
-  <li>Terra built a detailed map from the first prompt, with a skyline, cover and a rifle in view before it was asked for one. It ran a build check only after the first stage; the later stages still built and ran.</li>
+  <li>Terra built a detailed map from the first prompt, with a skyline, cover and a rifle in view before it was asked for one. It ran a production build at each stage, and like Haiku it never saw the game in a browser.</li>
   <li>Haiku made a separate Vite project next to the Next.js app. It checked the game logic in Node, and said after each stage that it could not see the game run in its sandbox.</li>
   <li>The last three prompts make the game multiplayer with InstantDB. Instant stopped taking new sign-ups in 2026, so I stopped after stage 4.</li>
   <li>My first Haiku attempt ran without a sandbox. It installed a headless browser on its own to test the game, so I stopped it and reran both models in a sandbox that only lets them write in their own folder. A later rerun was cut off when my computer shut down. A third, complete run ($0.18) turned out to have my personal Claude Code rules file loaded, so the Haiku numbers above are from a fourth run without it.</li>
