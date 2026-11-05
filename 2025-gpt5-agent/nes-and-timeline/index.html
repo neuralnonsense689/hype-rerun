@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A NES emulator and a log viewer from late 2025, rerun on Haiku 5.5 and GPT-6.1 Terra</title>
+<meta name="description" content="A NES emulator in C that GPT-5-Codex wrote from one spec, and a Codex log viewer GPT-5.2 built in three prompts, given again to Claude Haiku 5.5 and GPT-6.1 Terra in November 2026. The emulators are graded on 84 public test ROMs.">
+<link rel="icon" href="../../goldfish.png">
+<style>
+  :root { --bg: #0b0d10; --fg: #e8eaed; --dim: #9aa0a6; --line: #262a31; --accent: #f08a3e; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.55 -apple-system, "Helvetica Neue", Arial, sans-serif; }
+  main { max-width: 960px; margin: 0 auto; padding: 32px 16px 64px; }
+  a { color: var(--accent); }
+  .back { font-size: 15px; }
+  h1 { font-size: 34px; line-height: 1.2; margin: 18px 0 8px; }
+  h2 { font-size: 24px; margin: 56px 0 6px; }
+  h3 { font-size: 19px; margin: 32px 0 4px; }
+  p { margin: 8px 0; }
+  .dim { color: var(--dim); }
+  img, video { width: 100%; border-radius: 10px; display: block; margin: 16px 0 10px; }
+  .runs { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 15px; margin-top: 14px; }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 15px; margin-top: 12px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--dim); font-weight: 600; }
+  td.num { font-variant-numeric: tabular-nums; }
+  .m::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 7px; background: var(--c); }
+  .orig { --c: #8a9099; }
+  .haiku { --c: #f08a3e; }
+  .terra { --c: #5ec4b6; }
+  ul { padding-left: 20px; }
+  li { margin: 4px 0; }
+  footer { margin-top: 56px; font-size: 14px; color: var(--dim); }
+</style>
+</head>
+<body>
+<main>
+<a class="back" href="../../">hype rerun</a>
+<h1>A NES emulator and a log viewer from late 2025, rerun on Haiku 5.5 and GPT&#8209;6.1 Terra</h1>
+<p class="dim">November 2026. Two things GPT-5-family models built as coding agents at the end of 2025, given again with the same prompts to two cheap models. The emulators are graded on public test ROMs.</p>
+
+<h2>A NES emulator in C, from one spec</h2>
+<video src="nes-compare.mp4" autoplay muted loop playsinline controls></video>
+<p>In October 2025 a Reddit user asked ChatGPT to write a prompt for "a Nintendo NES emulator in clean, portable C", a 230-word spec covering the CPU, picture, sound, controllers and five cartridge types. Codex CLI with GPT-5-Codex on medium built it in one go: "25 min", using a quarter of a Plus plan's 5-hour limit. The author's verdict: "games are playable but with some graphic glitches". No games or test results were named.</p>
+<p>I gave the same spec, word for word, to Haiku 5.5 and GPT-6.1 Terra in an empty folder. One prompt each, no follow-ups.</p>
+<div class="scroll"><table>
+  <tr><th></th><th><span class="m orig">GPT-5-Codex</span> (Oct 2025)</th><th><span class="m haiku">Haiku 5.5</span> high</th><th><span class="m terra">GPT&#8209;6.1 Terra</span> high</th></tr>
+  <tr><td>Time</td><td class="num">25 min (author)</td><td class="num">21 min 46 s</td><td class="num">6 min 0 s</td></tr>
+  <tr><td>Cost</td><td>not published</td><td class="num">$0.69</td><td class="num">$0.11</td></tr>
+  <tr><td>C code, without tests</td><td class="num">4,080 lines</td><td class="num">3,126 lines</td><td class="num">167 very long lines (30 KB)</td></tr>
+  <tr><td>Test ROMs that report their own result (64)</td><td class="num">13</td><td class="num">28</td><td class="num">24</td></tr>
+  <tr><td>Test ROMs that only show a result on screen (20)</td><td class="num">2</td><td class="num">16</td><td class="num">18</td></tr>
+  <tr><td><b>All 84 test ROMs</b></td><td class="num"><b>15</b></td><td class="num"><b>44</b></td><td class="num"><b>42</b></td></tr>
+  <tr><td>What it said at the end</td><td>"playable but with some graphic glitches"</td><td>built and self-tested, never ran a real ROM, suggested test ROMs next</td><td>"a foundation", accuracy and game compatibility "not yet established"</td></tr>
+</table></div>
+<h3>By test group</h3>
+<div class="scroll"><table>
+  <tr><th>Group</th><th><span class="m orig">Original</span></th><th><span class="m haiku">Haiku</span></th><th><span class="m terra">Terra</span></th></tr>
+  <tr><td>CPU instructions (instr_test-v5)</td><td class="num">9/16</td><td class="num">15/16</td><td class="num">14/16</td></tr>
+  <tr><td>CPU and branch timing (instr_timing, branch timing, cpu_timing_test6)</td><td class="num">0/6</td><td class="num">4/6</td><td class="num">6/6</td></tr>
+  <tr><td>Sprite 0 hit (2005 set)</td><td class="num">1/11</td><td class="num">8/11</td><td class="num">11/11</td></tr>
+  <tr><td>Vertical blank and NMI (ppu_vbl_nmi)</td><td class="num">0/10</td><td class="num">4/10</td><td class="num">3/10</td></tr>
+  <tr><td>PPU basics (2005 set)</td><td class="num">1/5</td><td class="num">4/5</td><td class="num">3/5</td></tr>
+  <tr><td>Sound (apu_test)</td><td class="num">1/8</td><td class="num">4/8</td><td class="num">1/8</td></tr>
+  <tr><td>MMC3 cartridge (mmc3_test_2)</td><td class="num">0/6</td><td class="num">0/6</td><td class="num">0/6</td></tr>
+  <tr><td>Interrupts (cpu_interrupts_v2)</td><td class="num">0/5</td><td class="num">0/5</td><td class="num">0/5</td></tr>
+  <tr><td>Other (dummy reads and writes, reset, OAM, open bus, DMA)</td><td class="num">3/17</td><td class="num">5/17</td><td class="num">4/17</td></tr>
+</table></div>
+<h3>Things worth knowing</h3>
+<ul>
+  <li>The video is Blade Buster, a free homebrew shooter, with the same button presses on all three. Each frame comes from the emulator's own code run headless. The original draws most of the background as black, and its title screen comes out on white with broken letters. Haiku and Terra draw it almost the same way.</li>
+  <li>The test ROMs are the public collection most emulator authors use (blargg's tests and others, from christopherpow/nes-test-roms). The models had none of them, and no ROMs at all. For the 20 that only show text on screen, I read the last frame myself. The original draws that text with letters missing, so I could read only some of its results, and counted the unreadable ones as not passed.</li>
+  <li>The grader is my own small runner. It links each emulator's code through an adapter that calls the emulator's own functions, set up the way its own main program does it. I checked that changing the original's startup to match its main program exactly changes no result and no frame.</li>
+  <li>A passed test ROM checks one behaviour. These counts don't say how many commercial games run. I didn't try commercial games.</li>
+  <li>Terra's code is 167 lines because most lines hold many statements. The prompt asked for "clean" code. Haiku's is split into normal files and functions.</li>
+  <li>The original's author used Codex CLI on medium, and Plus usage isn't a dollar figure, so there's no cost to compare.</li>
+</ul>
+<div class="runs">
+  <a href="https://www.reddit.com/r/singularity/comments/1oa2b6j/">Original post</a>
+  <a href="https://github.com/Healthy-Nebula-3603/Owner-avatar-gpt5-codex-medium-proof-of-concept-nes-emulator">Original code and prompt</a>
+  <a href="code/nes-haiku.tar.gz">Haiku's emulator</a>
+  <a href="code/nes-terra.tar.gz">Terra's emulator</a>
+  <a href="code/nes-grader.tar.gz">Grader and per-ROM results</a>
+  <a href="https://github.com/christopherpow/nes-test-roms">Test ROMs</a>
+</div>
+
+<h2>A viewer for Codex session logs, in three prompts</h2>
+<img src="timeline-compare.png" alt="Three log viewers side by side, all showing the same 348-line Codex log. Left: the original Codex Timeline Viewer by GPT-5.2 xhigh, Dec 2025, 13 min 26 s for prompt 1. Middle: Haiku 5.5 high, Nov 2026, $0.63, 12.5 minutes for 3 prompts. Right: GPT-6.1 Terra high, Nov 2026, $0.08, 4 minutes for 3 prompts.">
+<p>In December 2025 Simon Willison, a developer who writes a widely read blog on AI tools, had GPT-5.2 on xhigh in Codex CLI build a page that shows a Codex session log as a timeline. He published the whole session log. The first prompt asked for one HTML file with no React that opens a log by paste, file picker, drag and drop or URL, shows times in local time with a UTC toggle, and is tested with Playwright against a 9 MB log while it's built. Two short follow-ups came the next day: make it full width with the filters under the file opener (with a screenshot), and make the details panel on the right sticky.</p>
+<p>I sent the same three prompts to Haiku 5.5 and Terra, in his tools repository as it was just before he started. With the second prompt each model got a screenshot of its own page, as he had sent one of his.</p>
+<div class="scroll"><table>
+  <tr><th></th><th><span class="m orig">GPT&#8209;5.2</span> xhigh (Dec 2025)</th><th><span class="m haiku">Haiku 5.5</span> high</th><th><span class="m terra">GPT&#8209;6.1 Terra</span> high</th></tr>
+  <tr><td>First prompt</td><td class="num">13 min 26 s</td><td class="num">9 min 31 s</td><td class="num">2 min 31 s</td></tr>
+  <tr><td>All three prompts</td><td>(a day apart)</td><td class="num">12 min 31 s, $0.63</td><td class="num">3 min 46 s, $0.08</td></tr>
+  <tr><td>Opens the 9 MB log, local/UTC toggle, four ways to load</td><td>yes</td><td>yes</td><td>yes</td></tr>
+  <tr><td>Playwright tests against the 9 MB log</td><td>yes</td><td>yes, 14 tests kept in the repo</td><td>yes, but the test file went to /tmp and wasn't kept</td></tr>
+  <tr><td>Third prompt: sticky details panel on the right</td><td>done</td><td>had no such panel, built one and said so</td><td>had no such panel, asked which panel was meant, changed nothing</td></tr>
+</table></div>
+<h3>Things worth knowing</h3>
+<ul>
+  <li>The 9 MB log from the original prompt was never published. I used the first 9 MB of one of my own Codex logs, under the same file name and path. It's private, so the image and the pages here use his public 348-line log instead.</li>
+  <li>The original's time is from his log. His page is the first commit of it, made after the three prompts. It may include edits of his own, which the log wouldn't show.</li>
+  <li>Haiku added things nobody asked for: an activity chart, event type chips with counts, gap highlighting, loading from <code>?url=</code> and arrow-key navigation. Terra's page is plain and does what the first prompt lists.</li>
+  <li>Terra named its file rollout-timeline.html, the same name GPT-5.2 first gave its file. The test log is named rollout-….jsonl, which probably explains both.</li>
+</ul>
+<div class="runs">
+  <a href="https://simonwillison.net/2025/Dec/25/claude-code-transcripts/">Post that mentions it</a>
+  <a href="https://gist.github.com/simonw/b9bc2cc5b5d996de3f7383796180276c">Original session log</a>
+  <a href="https://tools.simonwillison.net/codex-timeline?url=https%3A%2F%2Fgist.githubusercontent.com%2Fsimonw%2Fb9bc2cc5b5d996de3f7383796180276c%2Fraw%2Fb9af382e14bf5ab19aad3d23d4d788dbeef54aa1%2Ftimeline.jsonl">Original viewer (now with later changes)</a>
+  <a href="viewers/haiku.html?url=https%3A%2F%2Fgist.githubusercontent.com%2Fsimonw%2Fb9bc2cc5b5d996de3f7383796180276c%2Fraw%2Fb9af382e14bf5ab19aad3d23d4d788dbeef54aa1%2Ftimeline.jsonl">Haiku's viewer</a>
+  <a href="viewers/terra.html">Terra's viewer</a> <span class="dim">(paste the gist's raw URL)</span>
+</div>
+
+<h2>How this was run</h2>
+<ul>
+  <li>Haiku ran in Claude Code (<code>claude-haiku-5-5</code>, effort high). Terra ran in Codex CLI (<code>gpt-6.1-terra</code>, reasoning high). Each ran in its own Docker container with no approvals and no sandbox inside it, as both originals ran on their authors' own machines.</li>
+  <li>Unlike my JSONata and Z80 reruns, these containers had internet, since both originals did. I checked every command in all four runs: none fetched anything, and neither model used a web tool.</li>
+  <li>Both originals are public, so the new models may have seen them in training.</li>
+  <li>One run per model and task. That's enough to see what happened, not to rank models.</li>
+  <li>Costs are the tokens each run used at the provider's API list price. I ran them on subscriptions, so nothing was charged.</li>
+</ul>
+
+<footer>
+  <p>Original work belongs to its authors: the NES emulator to u/Healthy-Nebula-3603, the Codex Timeline Viewer to Simon Willison (Apache-2.0), Blade Buster to HLC Project, the test ROMs to their authors. Results here are linked, not copied.</p>
+  <p>By <a href="https://x.com/neuralnonsense_">@neuralnonsense_</a></p>
+</footer>
+</main>
+</body>
+</html>

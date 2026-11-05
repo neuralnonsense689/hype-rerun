@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rollout Timeline Viewer</title>
+<style>
+:root {
+  --bg: #f5f6f8;
+  --panel: #ffffff;
+  --ink: #1d232b;
+  --muted: #667085;
+  --line: #dde2ea;
+  --accent: #2563eb;
+  --hover: #f1f5fd;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --rail: 126px;
+  --headH: 56px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1319;
+    --panel: #171c24;
+    --ink: #e6e9ef;
+    --muted: #8b95a7;
+    --line: #2a313d;
+    --accent: #7aa7ff;
+    --hover: #1d2430;
+  }
+}
+[hidden] { display: none !important; }
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+}
+code { font-family: var(--mono); font-size: 0.92em; }
+button, input, textarea { font: inherit; color: inherit; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.spacer { flex: 1; }
+
+/* Top bar */
+header.top {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 12px;
+  padding: 10px 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+header.top h1 { margin: 0; font-size: 16px; font-weight: 650; white-space: nowrap; }
+.seg {
+  display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+}
+.seg button {
+  border: 0; background: transparent; color: var(--muted);
+  padding: 6px 14px; cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.seg button:not([aria-pressed="true"]):hover { color: var(--ink); }
+#tzNote { color: var(--muted); font-size: 12.5px; }
+
+main { padding: 16px 20px 32px; display: grid; gap: 14px; }
+.panel {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px;
+}
+button.ghost, .btn {
+  border: 1px solid var(--line); background: var(--panel); border-radius: 7px;
+  padding: 5px 11px; cursor: pointer;
+}
+button.ghost:hover, .btn:hover { border-color: var(--accent); }
+button.small-btn { font-size: 12px; padding: 3px 9px; }
+
+/* Loader */
+#loader { scroll-margin-top: calc(var(--headH) + 12px); }
+#loader > summary {
+  list-style: none; cursor: pointer; font-weight: 650; font-size: 16px;
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+}
+#loader > summary::-webkit-details-marker { display: none; }
+#loader > summary::after { content: "▾"; margin-left: auto; color: var(--muted); }
+#loader[open] > summary::after { content: "▴"; }
+#loader > summary .muted { font-size: 13px; font-weight: 400; }
+#loader-body { margin-top: 12px; }
+.drop {
+  border: 2px dashed var(--line); border-radius: 10px; padding: 26px 16px; text-align: center;
+}
+.drop .big { font-size: 16px; margin: 0 0 6px; font-weight: 600; }
+.drop p { margin: 4px 0; }
+.link { color: var(--accent); cursor: pointer; text-decoration: underline; }
+.grid-2 { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 14px; }
+@media (min-width: 820px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+.field label { display: block; font-weight: 600; margin-bottom: 4px; }
+textarea, input[type="url"], input[type="search"] {
+  width: 100%; border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px;
+  background: var(--bg);
+}
+textarea { min-height: 96px; font-family: var(--mono); font-size: 12.5px; resize: vertical; }
+.urlrow { display: flex; gap: 8px; }
+.urlrow input { flex: 1; min-width: 0; }
+#status { margin-top: 12px; min-height: 1.4em; font-size: 13px; }
+#status.error { color: #c0392b; }
+#status.ok { color: #198754; }
+#status.busy { color: var(--muted); }
+
+/* Report */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; min-width: 0; }
+.card .k { font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.card .v { font-size: 20px; font-weight: 650; margin-top: 2px; overflow-wrap: anywhere; }
+.card .v.sm { font-size: 13.5px; font-weight: 600; line-height: 1.35; margin-top: 6px; }
+.card .meta { font-size: 12px; color: var(--muted); margin-top: 2px; overflow-wrap: anywhere; }
+
+.hist-head { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 8px; font-weight: 600; }
+.hist { display: flex; align-items: flex-end; gap: 1px; height: 92px; border-bottom: 1px solid var(--line); }
+.bar {
+  flex: 1 1 0; min-width: 1px; height: 0; padding: 0; border: 0; border-radius: 2px 2px 0 0;
+  background: var(--accent); opacity: .8; cursor: pointer;
+}
+.bar.empty { opacity: 0; pointer-events: none; }
+.bar:hover { opacity: 1; }
+.axis { position: relative; height: 18px; margin-top: 5px; font-size: 11px; color: var(--muted); }
+.axis span { position: absolute; top: 0; white-space: nowrap; }
+
+.filters { display: grid; gap: 10px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  border: 1px solid color-mix(in srgb, var(--c) 55%, var(--line));
+  background: color-mix(in srgb, var(--c) 13%, transparent);
+  border-radius: 999px; padding: 3px 10px; font-size: 12px; cursor: pointer;
+  white-space: nowrap;
+}
+.chip b { font-weight: 600; color: var(--muted); margin-left: 6px; }
+.chip[aria-pressed="false"] { opacity: .42; background: transparent; text-decoration: line-through; }
+.filter-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* Timeline */
+.timeline {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  overflow: clip; /* clips without making this box a scroll container, so sticky day headers stick to the page */
+}
+.day {
+  position: sticky; top: var(--headH); z-index: 5;
+  display: flex; justify-content: space-between; gap: 10px;
+  padding: 7px 12px; background: var(--panel); border-bottom: 1px solid var(--line);
+  border-top: 1px solid var(--line); font-weight: 650; font-size: 13px;
+}
+.day:first-child { border-top: 0; }
+.gap {
+  display: flex; align-items: center; gap: 10px; padding: 4px 12px;
+  color: var(--muted); font-size: 12px; font-style: italic;
+}
+.gap::before, .gap::after { content: ""; flex: 1; border-top: 1px dashed var(--line); }
+.row {
+  position: relative; display: grid; align-items: center; cursor: pointer;
+  grid-template-columns: 100px 14px 210px minmax(0, 1fr) 62px 56px;
+  column-gap: 8px; padding: 5px 12px;
+  scroll-margin-top: calc(var(--headH) + 40px);
+}
+.row::before {
+  content: ""; position: absolute; top: 0; bottom: 0; left: var(--rail);
+  width: 2px; background: var(--line);
+}
+.row:hover { background: var(--hover); }
+.row.selected { background: color-mix(in srgb, var(--accent) 11%, transparent); box-shadow: inset 3px 0 0 var(--accent); }
+.row.flash { animation: flash 1.4s ease-out; }
+@keyframes flash { from { background: color-mix(in srgb, var(--accent) 28%, transparent); } to { background: transparent; } }
+.time { font-family: var(--mono); font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+.dot {
+  width: 10px; height: 10px; border-radius: 50%; justify-self: center;
+  background: var(--c); box-shadow: 0 0 0 3px var(--panel); position: relative; z-index: 1;
+}
+.badge {
+  justify-self: start; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px;
+  background: color-mix(in srgb, var(--c) 15%, transparent);
+  color: color-mix(in srgb, var(--c) 78%, var(--ink));
+}
+.preview { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.delta, .ln { font-family: var(--mono); font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.delta { text-align: right; }
+.delta.slow { color: #b45309; font-weight: 600; }
+.delta.slower { color: #c0392b; font-weight: 700; }
+.ln { opacity: .75; }
+/* Two columns on wide screens: the timeline scrolls on the left, the details panel stays put on the right. */
+.workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-items: start; }
+@media (min-width: 1100px) {
+  .workspace { grid-template-columns: minmax(0, 1fr) 390px; }
+}
+.detail-panel {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px;
+  min-width: 0;
+  order: -1; /* narrow screens: show the details above the long timeline */
+}
+@media (min-width: 1100px) {
+  .detail-panel {
+    order: 0;
+    position: sticky;
+    top: calc(var(--headH) + 12px);
+    max-height: calc(100vh - var(--headH) - 24px);
+    overflow: auto;
+  }
+}
+.dp-empty { color: var(--muted); font-size: 13px; margin: 0; }
+.dp-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.dp-head .badge { font-size: 12.5px; }
+.dp-meta { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0 0 10px; font-size: 13px; }
+.dp-meta dt { color: var(--muted); }
+.dp-meta dd { margin: 0; font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
+.dp-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.dp-json {
+  margin: 0; padding: 10px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+  font: 12px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; cursor: text;
+}
+.empty-msg { padding: 30px; text-align: center; color: var(--muted); margin: 0; }
+
+#dropOverlay {
+  position: fixed; inset: 0; z-index: 100; display: none;
+  align-items: center; justify-content: center; font-size: 22px; font-weight: 600;
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg) 82%);
+  border: 3px dashed var(--accent); pointer-events: none;
+}
+body.dragging #dropOverlay { display: flex; }
+
+@media (max-width: 760px) {
+  :root { --rail: 110px; }
+  .row { grid-template-columns: 84px 12px minmax(0, auto) minmax(0, 1fr); }
+  .row .delta, .row .ln { display: none; }
+  .row .badge { max-width: 150px; }
+  .time { font-size: 11.5px; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Rollout Timeline Viewer</h1>
+  <div class="seg" role="group" aria-label="Time zone for display">
+    <button type="button" data-mode="local" aria-pressed="true">Local</button>
+    <button type="button" data-mode="utc" aria-pressed="false">UTC</button>
+  </div>
+  <span id="tzNote"></span>
+  <span class="spacer"></span>
+  <button type="button" id="loadAnother" class="ghost" hidden>Load another…</button>
+</header>
+
+<main>
+  <details id="loader" class="panel" open>
+    <summary>Open a file <span class="muted">drop, paste, choose, or load a URL</span></summary>
+    <div id="loader-body">
+    <p class="muted small" style="margin:0 0 12px">Each record with an ISO 8601 <code>timestamp</code> becomes an event. Timestamps without a zone are read as UTC.</p>
+    <div id="dropzone" class="drop">
+      <p class="big">Drop a file anywhere on this page</p>
+      <p class="muted">or <label class="link">choose a file<input type="file" id="fileInput" accept=".jsonl,.ndjson,.json,.txt,application/json,application/x-ndjson" hidden></label>, paste content with Ctrl/⌘+V, or load a URL below</p>
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label for="pasteBox">Paste</label>
+        <textarea id="pasteBox" placeholder="Click here and paste (Ctrl/⌘+V). The pasted content loads straight away. You can also type or paste and press Load."></textarea>
+        <div style="margin-top:6px"><button type="button" id="loadPasted" class="btn">Load typed text</button></div>
+      </div>
+      <div class="field">
+        <form id="urlForm">
+          <label for="urlInput">Load from a URL</label>
+          <div class="urlrow">
+            <input id="urlInput" type="url" placeholder="https://example.com/session.jsonl" required>
+            <button type="submit" class="btn">Load</button>
+          </div>
+          <p class="muted small" style="margin:6px 0 0">The file must be served with <code>Access-Control-Allow-Origin</code> so the browser allows the request.</p>
+        </form>
+      </div>
+    </div>
+    <div id="status" role="status"></div>
+    </div>
+  </details>
+
+  <section id="report" hidden>
+    <div class="panel filters">
+      <input id="search" type="search" placeholder="Search inside events (press / to focus, Esc to clear)">
+      <div id="chips" class="chips"></div>
+      <div class="filter-foot">
+        <span id="count" class="muted small"></span>
+        <span class="spacer"></span>
+        <button type="button" id="allOn" class="ghost small-btn">Show all types</button>
+        <button type="button" id="allOff" class="ghost small-btn">Hide all</button>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="k">Source</div><div id="srcName" class="v sm"></div><div id="srcMeta" class="meta"></div></div>
+      <div class="card"><div class="k">Events</div><div id="cEvents" class="v"></div><div id="cEventsMeta" class="meta"></div></div>
+      <div class="card"><div class="k">Time span</div><div id="cSpan" class="v"></div><div id="cSpanMeta" class="meta"></div></div>
+      <div class="card"><div class="k">First event</div><div id="cFirst" class="v sm"></div></div>
+      <div class="card"><div class="k">Last event</div><div id="cLast" class="v sm"></div></div>
+    </div>
+
+    <div class="panel">
+      <div class="hist-head"><span>Activity</span><span id="histInfo" class="muted small"></span></div>
+      <div id="hist" class="hist"></div>
+      <div id="histAxis" class="axis"></div>
+    </div>
+
+    <div class="workspace">
+      <div id="timeline" class="timeline"></div>
+      <aside id="detailPanel" class="detail-panel" aria-label="Selected event details">
+        <p class="dp-empty">Click a row to see its full JSON here.</p>
+      </aside>
+    </div>
+  </section>
+</main>
+<div id="dropOverlay">Drop to load</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const DAY = 86400000;
+  const $ = (sel) => document.querySelector(sel);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const nextFrame = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
+  const LOCAL_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local';
+
+  const TS_KEYS = ['timestamp', 'created_at', 'createdAt', 'ts', 'time', 'datetime', 'date', 'updated_at', 'updatedAt', 'started_at', 'startedAt'];
+  const ISO_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/;
+  const NO_ZONE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/;
+  const TEXT_KEYS = ['text', 'message', 'last_agent_message', 'input', 'output', 'content', 'command', 'prompt', 'name', 'summary'];
+  // Gaps between events: highlight the delta from 10s, and draw a divider line for pauses of 5 minutes or more.
+  const GAP_SLOW_MS = 10000;
+  const GAP_SLOWER_MS = 60000;
+  const GAP_DIVIDER_MS = 300000;
+  const STEPS = [1e3, 2e3, 5e3, 1e4, 3e4, 6e4, 3e5, 6e5, 9e5, 18e5, 36e5, 108e5, 216e5, 432e5, 864e5, 1728e5, 6048e5];
+
+  const state = {
+    loaded: false,
+    events: [],          // sorted: timed events first (ascending), then untimed
+    groups: new Map(),   // group key -> {key, label, count, color}
+    hidden: new Set(),   // hidden group keys
+    selected: null,      // event index shown in the details panel
+    query: '',
+    visible: [],
+    hist: null,
+    timed: 0, untimed: 0, errors: [],
+    first: null, last: null, span: 0,
+    sourceName: '', sourceBytes: 0, lineCount: 0, parseMs: 0,
+    mode: localStorage.getItem('jsonlTimeline.tz') === 'utc' ? 'utc' : 'local',
+  };
+
+  /* ---------- time helpers ---------- */
+
+  let fmtCache = null;
+  function fmts() {
+    if (fmtCache && fmtCache.mode === state.mode) return fmtCache;
+    const z = state.mode === 'utc' ? { timeZone: 'UTC' } : {};
+    fmtCache = {
+      mode: state.mode,
+      time: new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23', ...z }),
+      hm: new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', ...z }),
+      date: new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', ...z }),
+      day: new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', ...z }),
+      dayShort: new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', ...z }),
+      tz: new Intl.DateTimeFormat('en-US', { timeZoneName: 'short', ...z }),
+    };
+    return fmtCache;
+  }
+  const msPart = (ms) => String(((ms % 1000) + 1000) % 1000).padStart(3, '0');
+  const fmtTime = (ms) => `${fmts().time.format(ms)}.${msPart(ms)}`;
+  const fmtHM = (ms, sec) => (sec ? fmts().time.format(ms) : fmts().hm.format(ms));
+  const fmtDay = (ms) => fmts().day.format(ms);
+  const fmtDayShort = (ms) => fmts().dayShort.format(ms);
+  function tzShort(ms) {
+    const part = fmts().tz.formatToParts(ms).find((p) => p.type === 'timeZoneName');
+    return part ? part.value : '';
+  }
+  const fmtFull = (ms) => `${fmts().date.format(ms)} ${fmtTime(ms)} ${tzShort(ms)}`;
+  function dayKey(ms) {
+    const d = new Date(ms);
+    return state.mode === 'utc'
+      ? `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`
+      : `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  }
+  function zoneMidnight(ms) {
+    if (state.mode === 'utc') return Math.floor(ms / DAY) * DAY;
+    const d = new Date(ms);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  }
+  function humanDur(ms) {
+    const sign = ms < 0 ? '-' : '';
+    const a = Math.abs(ms);
+    if (a < 1000) return `${sign}${Math.round(a)}ms`;
+    const total = a / 1000;
+    if (total < 60) return `${sign}${total < 10 ? total.toFixed(1) : Math.round(total)}s`;
+    const secs = Math.round(total);
+    const m = Math.floor(secs / 60);
+    if (m < 60) return `${sign}${m}m ${secs % 60}s`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${sign}${h}h ${m % 60}m`;
+    return `${sign}${Math.floor(h / 24)}d ${h % 24}h`;
+  }
+  function fmtBytes(n) {
+    if (n < 1024) return `${n} B`;
+    if (n < 1048576) return `${(n / 1024).toFixed(1)} KB`;
+    return `${(n / 1048576).toFixed(1)} MB`;
+  }
+  // Timestamp string/number -> epoch ms, or null.
+  function toMs(v) {
+    if (typeof v === 'number') {
+      if (!Number.isFinite(v)) return null;
+      return Math.abs(v) < 1e11 ? v * 1000 : v; // seconds vs milliseconds
+    }
+    if (typeof v !== 'string') return null;
+    let s = v.trim();
+    if (!s) return null;
+    if (/^-?\d+(\.\d+)?$/.test(s)) return toMs(Number(s));
+    if (!ISO_RE.test(s)) return null;
+    s = s.replace(' ', 'T').replace(/(\.\d{3})\d+/, '$1');
+    if (NO_ZONE_RE.test(s)) s += 'Z'; // no zone given: the file is UTC
+    const t = Date.parse(s);
+    return Number.isNaN(t) ? null : t;
+  }
+
+  /* ---------- parsing ---------- */
+
+  function timeOf(obj, key) {
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
+    if (key && obj[key] !== undefined) {
+      const t = toMs(obj[key]);
+      if (t !== null) return t;
+    }
+    for (const k of TS_KEYS) {
+      const t = toMs(obj[k]);
+      if (t !== null) return t;
+    }
+    return null;
+  }
+
+  function findTimeKey(records) {
+    for (const { obj } of records.slice(0, 50)) {
+      if (!obj || typeof obj !== 'object' || Array.isArray(obj)) continue;
+      for (const k of TS_KEYS) if (toMs(obj[k]) !== null) return k;
+      for (const [k, v] of Object.entries(obj)) if (typeof v === 'string' && toMs(v) !== null) return k;
+    }
+    return null;
+  }
+
+  function parseInput(text) {
+    const errors = [];
+    const head = text.trimStart()[0];
+    if (head === '[' || head === '{') {
+      try {
+        const doc = JSON.parse(text);
+        if (Array.isArray(doc)) return { records: doc.map((obj, i) => ({ obj, line: i + 1 })), errors };
+        if (doc && typeof doc === 'object') {
+          if (TS_KEYS.some((k) => k in doc)) return { records: [{ obj: doc, line: 1 }], errors };
+          const arr = Object.values(doc).find(Array.isArray);
+          if (arr) return { records: arr.map((obj, i) => ({ obj, line: i + 1 })), errors };
+          return { records: [{ obj: doc, line: 1 }], errors };
+        }
+      } catch (e) { /* not one JSON document: treat as JSON Lines */ }
+    }
+    const records = [];
+    const lines = text.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const s = lines[i].trim();
+      if (!s) continue;
+      try {
+        records.push({ obj: JSON.parse(s), line: i + 1 });
+      } catch (e) {
+        errors.push({ line: i + 1, message: e.message });
+      }
+    }
+    return { records, errors };
+  }
+
+  // Text to show in the row: the first meaningful string, else a few short scalar fields.
+  function findText(v, depth) {
+    if (depth > 4 || v == null) return '';
+    if (typeof v === 'string') return v;
+    if (Array.isArray(v)) {
+      return v.map((x) => findText(x, depth + 1)).filter((s) => s && s.trim()).join(' ');
+    }
+    if (typeof v === 'object') {
+      for (const k of TEXT_KEYS) {
+        if (!(k in v)) continue;
+        const s = findText(v[k], depth + 1);
+        if (s && s.trim()) return s;
+      }
+    }
+    return '';
+  }
+  function scalarSummary(o) {
+    const out = [];
+    for (const [k, v] of Object.entries(o)) {
+      if (k === 'type' || TS_KEYS.includes(k)) continue;
+      let s;
+      if (typeof v === 'string') { if (v.length > 120) continue; s = v; }
+      else if (typeof v === 'number' || typeof v === 'boolean') s = String(v);
+      else if (Array.isArray(v)) s = `[${v.length}]`;
+      else if (v && typeof v === 'object') s = '{…}';
+      else continue;
+      out.push(`${k}=${s}`);
+      if (out.length >= 6) break;
+    }
+    return out.join('  ');
+  }
+  function previewOf(v) {
+    let s = findText(v, 0);
+    if (!s || !s.trim()) {
+      if (v && typeof v === 'object' && !Array.isArray(v)) s = scalarSummary(v);
+      else s = String(JSON.stringify(v) ?? v);
+    }
+    return s.replace(/\s+/g, ' ').trim().slice(0, 400);
+  }
+  function colorFor(g) {
+    let h = 0;
+    for (let i = 0; i < g.length; i++) h = (h * 31 + g.charCodeAt(i)) >>> 0;
+    return `hsl(${h % 360} 62% 46%)`;
+  }
+
+  function buildEvents(records) {
+    const key = findTimeKey(records);
+    const events = [];
+    const groups = new Map();
+    for (const { obj, line } of records) {
+      const t = timeOf(obj, key);
+      const isObj = obj !== null && typeof obj === 'object' && !Array.isArray(obj);
+      const type = isObj ? (typeof obj.type === 'string' ? obj.type : 'record')
+        : (Array.isArray(obj) ? 'array' : typeof obj);
+      const p = isObj && obj.payload && typeof obj.payload === 'object' && !Array.isArray(obj.payload) ? obj.payload : null;
+      const src = p || (isObj ? obj : null);
+      const sub = p && typeof p.type === 'string' ? p.type : '';
+      let qual = '';
+      if (src) {
+        if (typeof src.role === 'string') qual = src.role;
+        else if (src.item && typeof src.item.type === 'string') qual = src.item.type;
+        else if (typeof src.name === 'string') qual = src.name;
+      }
+      const label = [sub || type, qual].filter(Boolean).join(' · ');
+      const group = `${type}|${label}`;
+      let g = groups.get(group);
+      if (!g) {
+        g = { key: group, label, count: 0, color: colorFor(group) };
+        groups.set(group, g);
+      }
+      g.count++;
+      events.push({ i: 0, line, t, label, group, color: g.color, preview: previewOf(src ?? obj), obj, hay: null });
+    }
+    const timed = events.filter((e) => e.t !== null).sort((a, b) => a.t - b.t);
+    const untimed = events.filter((e) => e.t === null);
+    const all = timed.concat(untimed);
+    all.forEach((e, i) => { e.i = i; });
+    state.events = all;
+    state.groups = groups;
+    state.hidden = new Set();
+    state.selected = null;
+    state.timed = timed.length;
+    state.untimed = untimed.length;
+    state.first = timed.length ? timed[0].t : null;
+    state.last = timed.length ? timed[timed.length - 1].t : null;
+    state.span = state.first === null ? 0 : state.last - state.first;
+  }
+
+  /* ---------- loading ---------- */
+
+  function setStatus(msg, kind) {
+    const el = $('#status');
+    el.textContent = msg;
+    el.className = kind || '';
+    if (kind === 'error') $('#loader').open = true; // make sure the message is visible
+  }
+
+  async function loadText(text, name, bytes) {
+    try {
+      setStatus(`Parsing ${name} (${fmtBytes(bytes)})…`, 'busy');
+      await nextFrame();
+      const t0 = performance.now();
+      text = text.replace(/^﻿/, '');
+      const { records, errors } = parseInput(text);
+      if (!records.length) {
+        const extra = errors.length ? ` ${errors.length} line(s) were not valid JSON; first at line ${errors[0].line}: ${errors[0].message}.` : '';
+        throw new Error(`No JSON records found in ${name}.${extra}`);
+      }
+      buildEvents(records);
+      state.errors = errors;
+      state.sourceName = name;
+      state.sourceBytes = bytes;
+      state.lineCount = records.length + errors.length;
+      state.parseMs = Math.round(performance.now() - t0);
+      state.query = '';
+      $('#search').value = '';
+      state.loaded = true;
+      document.title = `${name} · Rollout Timeline Viewer`;
+      $('#report').hidden = false;
+      $('#loadAnother').hidden = false;
+      setStatus('');
+      $('#loader').open = false; // collapse the open-file widget; the filters sit directly below it
+      renderChips();
+      renderAll();
+      setHeaderHeight();
+    } catch (err) {
+      setStatus(err.message || String(err), 'error');
+    }
+  }
+
+  async function loadFile(file) {
+    setStatus(`Reading ${file.name}…`, 'busy');
+    await nextFrame();
+    const text = await file.text();
+    await loadText(text, file.name, file.size);
+  }
+
+  async function loadUrl(raw) {
+    let u;
+    try {
+      u = new URL(raw);
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('bad protocol');
+    } catch (e) {
+      setStatus('Enter a full http:// or https:// URL.', 'error');
+      return;
+    }
+    setStatus(`Fetching ${u.href}…`, 'busy');
+    let res;
+    try {
+      res = await fetch(u.href, { mode: 'cors', credentials: 'omit' });
+    } catch (e) {
+      setStatus(`Could not fetch ${u.href}. The request failed or was blocked; the server must allow cross-origin (CORS) requests.`, 'error');
+      return;
+    }
+    if (!res.ok) {
+      setStatus(`HTTP ${res.status} ${res.statusText} from ${u.host}`, 'error');
+      return;
+    }
+    const text = await res.text();
+    const size = Number(res.headers.get('content-length')) || new Blob([text]).size;
+    const name = decodeURIComponent(u.pathname.split('/').filter(Boolean).pop() || u.host);
+    await loadText(text, name, size);
+  }
+
+  /* ---------- rendering ---------- */
+
+  function computeVisible() {
+    const q = state.query.trim().toLowerCase();
+    const out = [];
+    for (const e of state.events) {
+      if (state.hidden.has(e.group)) continue;
+      if (q) {
+        if (e.hay === null) e.hay = JSON.stringify(e.obj).toLowerCase();
+        if (!e.hay.includes(q)) continue;
+      }
+      out.push(e);
+    }
+    return out;
+  }
+
+  function renderAll() {
+    if (!state.loaded) return;
+    state.visible = computeVisible();
+    renderHeader();
+    renderStats();
+    renderHist();
+    renderTimeline();
+    renderDetails();
+    $('#count').textContent = `${state.visible.length.toLocaleString()} of ${state.events.length.toLocaleString()} events shown`;
+  }
+
+  function renderHeader() {
+    $('#tzNote').textContent = state.mode === 'utc'
+      ? 'Showing times in UTC, as recorded in the file'
+      : `Showing times in your local zone (${LOCAL_ZONE})`;
+    document.querySelectorAll('[data-mode]').forEach((b) => {
+      b.setAttribute('aria-pressed', String(b.dataset.mode === state.mode));
+    });
+  }
+
+  function renderStats() {
+    $('#srcName').textContent = state.sourceName;
+    $('#srcMeta').textContent = `${fmtBytes(state.sourceBytes)} · ${state.lineCount.toLocaleString()} lines · parsed in ${state.parseMs} ms`;
+    $('#cEvents').textContent = state.timed.toLocaleString();
+    $('#cEventsMeta').textContent = `${state.untimed.toLocaleString()} without a timestamp · ${state.errors.length.toLocaleString()} unparseable line(s) skipped`;
+    $('#cSpan').textContent = state.span ? humanDur(state.span) : '—';
+    const perMin = state.span > 0 ? state.timed / (state.span / 60000) : 0;
+    $('#cSpanMeta').textContent = perMin ? `${perMin < 10 ? perMin.toFixed(1) : Math.round(perMin)} events per minute on average` : '';
+    $('#cFirst').textContent = state.first === null ? '—' : fmtFull(state.first);
+    $('#cLast').textContent = state.last === null ? '—' : fmtFull(state.last);
+  }
+
+  function renderChips() {
+    const list = [...state.groups.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+    $('#chips').innerHTML = list.map((g) => `<button type="button" class="chip" data-group="${esc(g.key)}" aria-pressed="${!state.hidden.has(g.key)}" style="--c:${g.color}" title="${esc(g.label)}">${esc(g.label)}<b>${g.count.toLocaleString()}</b></button>`).join('');
+  }
+
+  function renderHist() {
+    const hist = $('#hist');
+    const axis = $('#histAxis');
+    const ts = state.visible.filter((e) => e.t !== null);
+    if (!ts.length) {
+      hist.innerHTML = '';
+      axis.innerHTML = '';
+      $('#histInfo').textContent = 'No timed events in view';
+      state.hist = null;
+      return;
+    }
+    const first = ts[0].t;
+    const last = ts[ts.length - 1].t;
+    const span = Math.max(last - first, 1);
+    const step = STEPS.find((s) => span / s <= 120) ?? STEPS[STEPS.length - 1];
+    const start = step >= DAY ? zoneMidnight(first) : Math.floor(first / step) * step;
+    const nb = Math.floor((last - start) / step) + 1;
+    const counts = new Array(nb).fill(0);
+    for (const e of ts) counts[Math.floor((e.t - start) / step)]++;
+    const max = Math.max(...counts);
+    state.hist = { start, step, ts };
+
+    hist.innerHTML = counts.map((c, b) => {
+      const bucketStart = start + b * step;
+      const title = `${fmtFull(bucketStart)} · ${c.toLocaleString()} event${c === 1 ? '' : 's'}`;
+      return `<button type="button" class="bar${c ? '' : ' empty'}" data-b="${b}" style="height:${(c / max * 100).toFixed(1)}%" title="${esc(title)}" aria-label="${esc(title)}"></button>`;
+    }).join('');
+
+    // About one label per 110px so labels never collide, however narrow the window is.
+    const every = Math.max(1, Math.ceil(nb / Math.max(2, Math.floor(axis.clientWidth / 110))));
+    let labels = '';
+    let prevDay = null;
+    for (let b = 0; b < nb; b += every) {
+      const bt = start + b * step;
+      const dk = dayKey(bt);
+      let text;
+      if (step >= DAY) text = fmtDayShort(bt);
+      else text = (dk !== prevDay || b === 0 ? `${fmtDayShort(bt)} ` : '') + fmtHM(bt, step < 60000);
+      prevDay = dk;
+      labels += `<span style="left:${(b / nb * 100).toFixed(3)}%">${esc(text)}</span>`;
+    }
+    axis.innerHTML = labels;
+    $('#histInfo').textContent = `${nb} buckets of ${humanDur(step)} · busiest bucket ${max.toLocaleString()} events`;
+  }
+
+  function firstIndexAtOrAfter(arr, t) {
+    let lo = 0, hi = arr.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (arr[mid].t < t) lo = mid + 1; else hi = mid;
+    }
+    return lo;
+  }
+
+  // gap: ms since the previous visible timed event, or null for the first one.
+  function rowHtml(e, gap) {
+    const selected = state.selected === e.i;
+    const cls = gap === null ? '' : gap >= GAP_SLOWER_MS ? ' slower' : gap >= GAP_SLOW_MS ? ' slow' : '';
+    const delta = gap === null ? '' : `+${humanDur(gap)}`;
+    return `<div class="row${selected ? ' selected' : ''}" data-i="${e.i}" style="--c:${e.color}">` +
+      `<span class="time">${e.t === null ? '—' : fmtTime(e.t)}</span>` +
+      `<span class="dot"></span>` +
+      `<span class="badge" title="${esc(e.label)}">${esc(e.label)}</span>` +
+      `<span class="preview">${esc(e.preview)}</span>` +
+      `<span class="delta${cls}">${esc(delta)}</span>` +
+      `<span class="ln" title="line in file">L${e.line}</span>` +
+      `</div>`;
+  }
+
+  /* ---------- details panel ---------- */
+
+  function select(i, scroll) {
+    state.selected = i;
+    document.querySelectorAll('#timeline .row.selected').forEach((r) => r.classList.remove('selected'));
+    const row = document.querySelector(`#timeline .row[data-i="${i}"]`);
+    if (row) {
+      row.classList.add('selected');
+      if (scroll) row.scrollIntoView({ block: 'nearest' });
+    }
+    renderDetails();
+  }
+
+  function renderDetails() {
+    const panel = $('#detailPanel');
+    if (state.selected === null) {
+      panel.innerHTML = '<p class="dp-empty">Click a row to see its full JSON here.</p>';
+      return;
+    }
+    const e = state.events[state.selected];
+    const pos = state.visible.indexOf(e);
+    const prev = pos > 0 ? state.visible[pos - 1] : null;
+    const gap = prev && prev.t !== null && e.t !== null ? humanDur(e.t - prev.t) : '—';
+    const where = pos < 0 ? 'hidden by filters' : `${(pos + 1).toLocaleString()} of ${state.visible.length.toLocaleString()} shown`;
+    panel.innerHTML = `
+      <div class="dp-head">
+        <span class="badge" style="--c:${e.color}">${esc(e.label)}</span>
+        <span class="muted small">L${e.line} · ${where}</span>
+      </div>
+      <dl class="dp-meta">
+        <dt>Time</dt><dd>${e.t === null ? '—' : esc(fmtFull(e.t))}</dd>
+        <dt>UTC</dt><dd>${e.t === null ? '—' : esc(new Date(e.t).toISOString())}</dd>
+        <dt>Since prev</dt><dd>${esc(gap)}</dd>
+      </dl>
+      <div class="dp-actions">
+        <button type="button" class="ghost small-btn" data-act="prev">↑ Previous</button>
+        <button type="button" class="ghost small-btn" data-act="next">↓ Next</button>
+        <button type="button" class="ghost small-btn" data-act="copy">Copy JSON</button>
+      </div>
+      <pre class="dp-json">${esc(JSON.stringify(e.obj, null, 2))}</pre>`;
+  }
+
+  function step(delta) {
+    if (!state.visible.length) return;
+    const pos = state.selected === null ? -1 : state.visible.findIndex((e) => e.i === state.selected);
+    let next = pos < 0 ? (delta > 0 ? 0 : state.visible.length - 1) : pos + delta;
+    next = Math.max(0, Math.min(state.visible.length - 1, next));
+    select(state.visible[next].i, true);
+  }
+
+  $('#detailPanel').addEventListener('click', (e) => {
+    const act = e.target.closest('[data-act]')?.dataset.act;
+    if (act === 'prev') step(-1);
+    else if (act === 'next') step(1);
+    else if (act === 'copy' && state.selected !== null) {
+      const btn = e.target.closest('[data-act]');
+      navigator.clipboard?.writeText(JSON.stringify(state.events[state.selected].obj, null, 2))
+        .then(() => { btn.textContent = 'Copied'; setTimeout(() => { btn.textContent = 'Copy JSON'; }, 1500); })
+        .catch(() => { btn.textContent = 'Copy failed'; });
+    }
+  });
+
+  function renderTimeline() {
+    const el = $('#timeline');
+    const vis = state.visible;
+    if (!vis.length) {
+      el.innerHTML = `<p class="empty-msg">${state.events.length ? 'No events match the current filters.' : 'No events.'}</p>`;
+      return;
+    }
+    const dayCount = new Map();
+    for (const e of vis) {
+      const k = e.t === null ? 'none' : dayKey(e.t);
+      dayCount.set(k, (dayCount.get(k) || 0) + 1);
+    }
+    let html = '';
+    let prevKey = null;
+    let prevT = null;
+    for (const e of vis) {
+      const k = e.t === null ? 'none' : dayKey(e.t);
+      const gap = e.t !== null && prevT !== null ? e.t - prevT : null;
+      const showDivider = gap !== null && gap >= GAP_DIVIDER_MS;
+      if (k !== prevKey) {
+        if (showDivider) html += `<div class="gap">⋯ ${humanDur(gap)} without events</div>`;
+        const label = e.t === null ? 'No timestamp' : fmtDay(e.t);
+        html += `<div class="day"><span>${esc(label)}</span><span class="muted">${dayCount.get(k).toLocaleString()} events</span></div>`;
+        prevKey = k;
+      } else if (showDivider) {
+        html += `<div class="gap">⋯ ${humanDur(gap)} without events</div>`;
+      }
+      html += rowHtml(e, gap);
+      if (e.t !== null) prevT = e.t;
+    }
+    el.innerHTML = html;
+  }
+
+  function setHeaderHeight() {
+    const h = document.querySelector('header.top').offsetHeight;
+    document.documentElement.style.setProperty('--headH', `${h}px`);
+  }
+
+  /* ---------- events ---------- */
+
+  function setMode(mode) {
+    state.mode = mode;
+    localStorage.setItem('jsonlTimeline.tz', mode);
+    if (state.loaded) renderAll();
+    else renderHeader();
+  }
+
+  document.querySelectorAll('[data-mode]').forEach((b) => {
+    b.addEventListener('click', () => setMode(b.dataset.mode));
+  });
+
+  $('#timeline').addEventListener('click', (e) => {
+    const row = e.target.closest('.row');
+    if (row) select(Number(row.dataset.i), false);
+  });
+
+  $('#hist').addEventListener('click', (e) => {
+    const bar = e.target.closest('.bar');
+    if (!bar || !state.hist) return;
+    const { start, step, ts } = state.hist;
+    const idx = Math.min(firstIndexAtOrAfter(ts, start + Number(bar.dataset.b) * step), ts.length - 1);
+    const row = document.querySelector(`.row[data-i="${ts[idx].i}"]`);
+    if (!row) return;
+    row.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    row.classList.add('flash');
+    setTimeout(() => row.classList.remove('flash'), 1400);
+  });
+
+  $('#chips').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-group]');
+    if (!btn) return;
+    const key = btn.dataset.group;
+    if (state.hidden.has(key)) state.hidden.delete(key); else state.hidden.add(key);
+    btn.setAttribute('aria-pressed', String(!state.hidden.has(key)));
+    renderAll();
+  });
+
+  $('#allOn').addEventListener('click', () => { state.hidden.clear(); renderChips(); renderAll(); });
+  $('#allOff').addEventListener('click', () => { state.hidden = new Set(state.groups.keys()); renderChips(); renderAll(); });
+
+  let searchTimer = null;
+  $('#search').addEventListener('input', (e) => {
+    clearTimeout(searchTimer);
+    const value = e.target.value;
+    searchTimer = setTimeout(() => { state.query = value; renderAll(); }, 120);
+  });
+
+  const isTextField = (el) => !!el && el.matches?.('input, textarea, select, [contenteditable="true"]');
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === '/' && !isTextField(e.target) && state.loaded) {
+      e.preventDefault();
+      $('#search').focus();
+    } else if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && state.loaded && !isTextField(e.target)) {
+      e.preventDefault();
+      step(e.key === 'ArrowDown' ? 1 : -1);
+    } else if (e.key === 'Escape' && e.target.id === 'search' && e.target.value) {
+      e.target.value = '';
+      state.query = '';
+      renderAll();
+    }
+  });
+
+  // Paste anywhere (outside text fields) or into the paste box: load immediately.
+  document.addEventListener('paste', (e) => {
+    const target = e.target;
+    if (isTextField(target) && target.id !== 'pasteBox') return;
+    const text = e.clipboardData?.getData('text/plain');
+    if (!text || !text.trim()) return;
+    e.preventDefault();
+    loadText(text, 'pasted text', text.length);
+  });
+
+  $('#loadPasted').addEventListener('click', () => {
+    const text = $('#pasteBox').value;
+    if (!text.trim()) { setStatus('Paste or type some JSON / JSONL first.', 'error'); return; }
+    loadText(text, 'pasted text', text.length);
+  });
+
+  $('#fileInput').addEventListener('change', (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (f) loadFile(f);
+    e.target.value = '';
+  });
+
+  $('#urlForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    loadUrl($('#urlInput').value.trim());
+  });
+
+  $('#loadAnother').addEventListener('click', () => {
+    $('#loader').open = true;
+    $('#loader').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  // Drag and drop anywhere on the page.
+  const hasFiles = (e) => Array.from(e.dataTransfer?.types || []).includes('Files');
+  let dragDepth = 0;
+  window.addEventListener('dragenter', (e) => {
+    if (!hasFiles(e)) return;
+    dragDepth++;
+    document.body.classList.add('dragging');
+  });
+  window.addEventListener('dragleave', (e) => {
+    if (!hasFiles(e)) return;
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (!dragDepth) document.body.classList.remove('dragging');
+  });
+  window.addEventListener('dragover', (e) => {
+    if (hasFiles(e)) e.preventDefault();
+  });
+  window.addEventListener('drop', (e) => {
+    dragDepth = 0;
+    document.body.classList.remove('dragging');
+    const dt = e.dataTransfer;
+    if (!dt) return;
+    e.preventDefault();
+    if (hasFiles(e)) {
+      const f = dt.files[0];
+      if (f) loadFile(f);
+    } else {
+      const text = dt.getData('text/plain');
+      if (text && text.trim()) loadText(text, 'dropped text', text.length);
+    }
+  });
+
+  window.addEventListener('resize', setHeaderHeight);
+
+  // Optional: ?url=... loads that URL on open.
+  const urlParam = new URLSearchParams(location.search).get('url');
+  if (urlParam) {
+    $('#urlInput').value = urlParam;
+    loadUrl(urlParam);
+  }
+
+  renderHeader();
+  setHeaderHeight();
+})();
+</script>
+</body>
+</html>
