@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChatGPT's launch week, rerun on a phone model</title>
+<meta name="description" content="Four prompts that went viral in ChatGPT's first week, November 2022, given again to Gemma 4 E4B, a model Google built for phones, in November 2026.">
+<link rel="icon" href="../goldfish.png">
+<style>
+  :root { --bg: #0b0d10; --fg: #e8eaed; --dim: #9aa0a6; --line: #262a31; --accent: #f08a3e; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.55 -apple-system, "Helvetica Neue", Arial, sans-serif; }
+  main { max-width: 960px; margin: 0 auto; padding: 32px 16px 64px; }
+  a { color: var(--accent); }
+  .back { font-size: 15px; }
+  h1 { font-size: 34px; line-height: 1.2; margin: 18px 0 8px; }
+  h2 { font-size: 24px; margin: 56px 0 6px; }
+  p { margin: 8px 0; }
+  code { overflow-wrap: anywhere; }
+  .dim { color: var(--dim); }
+  video { width: 100%; border-radius: 10px; background: #000; display: block; margin: 16px 0 10px; }
+  .runs { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 15px; }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 15px; margin-top: 12px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--dim); font-weight: 600; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .dots { display: inline-flex; gap: 4px; white-space: nowrap; }
+  .d { display: inline-flex; width: 20px; height: 20px; border-radius: 50%; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: #0b0d10; }
+  .d.r { background: #3fb950; } .d.w { background: #f85149; }
+  .d.first { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px #c9ccd1; margin-right: 3px; }
+  .key { font-size: 15px; color: var(--dim); } .key .d { margin: 0 4px 0 12px; vertical-align: -4px; } .key .d:first-child { margin-left: 0; }
+  img { width: 100%; border-radius: 10px; display: block; margin: 20px 0 10px; }
+  ul { padding-left: 20px; }
+  footer { margin-top: 56px; font-size: 14px; color: var(--dim); }
+</style>
+</head>
+<body>
+<main>
+<a class="back" href="../">hype rerun</a>
+<h1>ChatGPT's launch week, rerun on a phone model</h1>
+<p class="dim">November 2026. ChatGPT came out on November 30, 2022. Four of the prompts people shared that first week, given again word for word to Gemma 4 E4B, a 3.7 GB model Google built to run on phones. One answer beats 2022 ChatGPT (Hobbes), one matches it (the gangster), and two fall short (the JavaScript fix and the VCR verse).</p>
+<img src="clips/scorecard.png" alt="Summary card. Hobbes: ChatGPT 2022 wrong, Gemma right in five of six runs, better. JavaScript bug: ChatGPT right, Gemma right in three of six, worse. Gangster bubble sort: ChatGPT right, Gemma right in five of six, as good. VCR verse: ChatGPT told a story, Gemma did in none of six, worse.">
+
+<h2>Did Hobbes believe in separation of powers?</h2>
+<video src="clips/hobbes.mp4" autoplay muted loop playsinline controls></video>
+<p>A tech analyst asked this on launch week and wrote about the answer: ChatGPT said yes and credited Hobbes with legislative, executive and judicial branches. Hobbes argued for one undivided sovereign, so the answer was wrong. Gemma says he did not believe in it and explains why, with <i>Leviathan</i> and a comparison to Montesquieu.</p>
+<div class="runs">
+  <a href="https://stratechery.com/2022/ai-homework/">Original article by Ben Thompson, with the screenshot</a>
+</div>
+
+<h2>Find the bug</h2>
+<video src="clips/jsbug.mp4" autoplay muted loop playsinline controls></video>
+<p>A startup CEO pasted a loop that schedules <code>console.log(i)</code> five times with <code>var i</code>. ChatGPT said it prints the final value instead of 0 to 4 and gave two fixes, both of which work.</p>
+<p>Gemma explains the bug the same way, and its first fix (<code>let</code> instead of <code>var</code>) works. Its second fix copies <code>i</code> into <code>var j</code> inside the loop. <code>j</code> is shared too, so it prints 4 five times, but the answer says it prints 0, 1, 2, 3, 4. I ran each code block in Node to check. Other runs had broken fixes too (see the table below).</p>
+<div class="runs">
+  <a href="https://x.com/amasad/status/1598042665375105024">Original post by Amjad Masad</a>
+</div>
+
+<h2>Bubble sort, as told by a 1940s gangster</h2>
+<video src="clips/gangster.mp4" autoplay muted loop playsinline controls></video>
+<p>A prompt engineer asked for "a step-by-step analysis of the worst-case time complexity of the bubble sort algorithm, with Python code examples", every sentence in the voice of "a fast-talkin' wise guy from a 1940's gangster movie". Both answers get O(n²). Gemma ends nearly every sentence with "see?", and its full code sorts when run. ChatGPT's code comments were mostly in plain English.</p>
+<p>Of the twelve runs, two didn't run as written. One split the code into pieces that only work when put back together, and one had a typo in a variable name and crashed.</p>
+<div class="runs">
+  <a href="https://x.com/goodside/status/1598129631609380864">Original post by Riley Goodside</a>
+</div>
+
+<h2>A peanut butter sandwich in a VCR</h2>
+<video src="clips/vcr.mp4" autoplay muted loop playsinline controls></video>
+<p>The most shared one that week, from a security researcher: "write a biblical verse in the style of the king james bible explaining how to remove a peanut butter sandwich from a VCR". ChatGPT told a story: a man cries out to the Lord, the Lord tells him to use a butter knife, then warns him to keep his sandwiches on a plate. Gemma writes one paragraph in the right style, with no story and no joke at the end. None of its twelve runs told a story like the original.</p>
+<div class="runs">
+  <a href="https://x.com/tqbf/status/1598513757805858820">Original post by Thomas Ptacek</a>
+</div>
+
+<h2 id="runs">Every run</h2>
+<p>Each prompt ran once on default settings and five more times with Google's recommended sampling, with thinking off and on. One dot per run. The ringed dot is the default-settings run, the one in the videos. The last two rows are extra prompts from launch week with no video.</p>
+<p class="key"><span class="d r">✓</span> right <span class="d w">✕</span> wrong</p>
+<div class="scroll"><table class="grid">
+  <tr><th>Prompt</th><th>ChatGPT 2022</th><th>Gemma, thinking off</th><th>Gemma, thinking on</th></tr>
+  <tr><td>Hobbes: says no</td><td><span class="dots"><span class="d w" title="wrong">✕</span></span></td><td><span class="dots"><span class="d r first" title="right">✓</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span><span class="d w" title="wrong">✕</span></span></td><td><span class="dots"><span class="d r first" title="right">✓</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span></span></td></tr>
+  <tr><td>JavaScript: finds the cause</td><td><span class="dots"><span class="d r" title="right">✓</span></span></td><td><span class="dots"><span class="d r first" title="right">✓</span><span class="d r" title="right">✓</span><span class="d w" title="wrong">✕</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span></span></td><td><span class="dots"><span class="d r first" title="right">✓</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span></span></td></tr>
+  <tr><td>JavaScript: cause, and every fix works</td><td><span class="dots"><span class="d r" title="right">✓</span></span></td><td><span class="dots"><span class="d w first" title="wrong">✕</span><span class="d r" title="right">✓</span><span class="d w" title="wrong">✕</span><span class="d w" title="wrong">✕</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span></span></td><td><span class="dots"><span class="d w first" title="wrong">✕</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span><span class="d w" title="wrong">✕</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span></span></td></tr>
+  <tr><td>Gangster: right answer, code sorts</td><td><span class="dots"><span class="d r" title="right">✓</span></span></td><td><span class="dots"><span class="d r first" title="right">✓</span><span class="d r" title="right">✓</span><span class="d w" title="wrong">✕</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span></span></td><td><span class="dots"><span class="d r first" title="right">✓</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span><span class="d w" title="wrong">✕</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span></span></td></tr>
+  <tr><td>VCR: a story with a punchline</td><td><span class="dots"><span class="d r" title="right">✓</span></span></td><td><span class="dots"><span class="d w first" title="wrong">✕</span><span class="d w" title="wrong">✕</span><span class="d w" title="wrong">✕</span><span class="d w" title="wrong">✕</span><span class="d w" title="wrong">✕</span><span class="d w" title="wrong">✕</span></span></td><td><span class="dots"><span class="d w first" title="wrong">✕</span><span class="d w" title="wrong">✕</span><span class="d w" title="wrong">✕</span><span class="d w" title="wrong">✕</span><span class="d w" title="wrong">✕</span><span class="d w" title="wrong">✕</span></span></td></tr>
+  <tr><td>Extra: letters in "nineteen"</td><td><span class="dots"><span class="d w" title="wrong">✕</span></span></td><td><span class="dots"><span class="d r first" title="right">✓</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span><span class="d w" title="wrong">✕</span></span></td><td><span class="dots"><span class="d r first" title="right">✓</span><span class="d w" title="wrong">✕</span><span class="d r" title="right">✓</span><span class="d w" title="wrong">✕</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span></span></td></tr>
+  <tr><td>Extra: Columbus in 2015</td><td><span class="dots"><span class="d r" title="right">✓</span></span></td><td><span class="dots"><span class="d r first" title="right">✓</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span></span></td><td><span class="dots"><span class="d r first" title="right">✓</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span><span class="d r" title="right">✓</span></span></td></tr>
+</table></div>
+<p>On "nineteen", Gemma said "seven" twice and 9 once.</p>
+
+<h2>How this was run</h2>
+<ul>
+  <li>The model is Google's own phone file, <code>gemma-4-E4B-it.litertlm</code> from Hugging Face, the one the Google AI Edge Gallery app loads. I couldn't record on a phone, so I ran the same file on a Mac (M2 Pro) with Google's LiteRT-LM tool. It runs locally and needs no internet.</li>
+  <li>The phone in the videos replays the Mac's text at the speed Google published for this file on a Galaxy S26 Ultra: 22 tokens per second, first token after 0.8 seconds. On the Mac it came out about twice as fast.</li>
+  <li>Videos show the default-settings run with thinking off. That setting always picks the most likely next word, so anyone with the file gets the same text.</li>
+  <li>Prompts are the originals, word for word, read from the screenshots.</li>
+  <li>No follow-up prompts and no retries. The original screenshots show whatever their authors chose to share, and ChatGPT's answers then also varied from run to run.</li>
+  <li>This is four prompts that went viral, not a benchmark.</li>
+</ul>
+
+<footer>
+  <p>Originals belong to their authors: Ben Thompson (Hobbes), Amjad Masad (JavaScript), Riley Goodside (gangster), Thomas Ptacek (VCR). The videos show their screenshots with credit.</p>
+  <p>By <a href="https://x.com/neuralnonsense_">@neuralnonsense_</a></p>
+</footer>
+</main>
+</body>
+</html>
